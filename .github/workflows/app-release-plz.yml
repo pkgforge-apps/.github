@@ -1,0 +1,87 @@
+name: app-release-plz
+
+# An app's release flow, called from its release-plz.yml on every push to
+# main. `release` tags a version once its release PR is merged, creates
+# the GitHub release and starts the app's release.yml to build the
+# assets. `release-pr` then opens or refreshes the release PR for what
+# landed since.
+#
+# Everything runs on GITHUB_TOKEN, so the release PR, its commits and the
+# release belong to github-actions[bot]. Events made with that token
+# start no workflows, but workflow_dispatch is exempt from that rule: the
+# asset build and the release PR's CI are both started by dispatch.
+on:
+  workflow_call:
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    name: release
+    # A template repository has nothing to release.
+    if: ${{ !github.event.repository.is_template }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+      # crates.io trusted publishing hands out the registry token through
+      # this OIDC id-token. Unused while the app is git-only.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - id: release-plz
+        uses: release-plz/action@8b5bf233ecb5779f63508db7cd050e948ee77cc2 # v0.5.144
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start the asset build
+        if: steps.release-plz.outputs.releases_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
+        run: |
+          app="$(sed -n 's/^name = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          tag="$(echo "$RELEASES" | jq -r --arg app "$app" '.[] | select(.package_name == $app) | .tag')"
+          if [ -n "$tag" ]; then
+            gh workflow run release.yml --repo "$GITHUB_REPOSITORY" -f tag="$tag"
+          fi
+
+  # Waits for `release`: the changelog range starts at the last release
+  # tag, which must exist before the next PR is computed.
+  release-pr:
+    name: release PR
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+      - id: release-plz
+        uses: release-plz/action@8b5bf233ecb5779f63508db7cd050e948ee77cc2 # v0.5.144
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run CI on the release PR
+        if: steps.release-plz.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ fromJSON(steps.release-plz.outputs.pr).head_branch }}
+        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"

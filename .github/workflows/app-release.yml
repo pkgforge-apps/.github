@@ -1,0 +1,191 @@
+name: app-release
+
+# Builds every asset of an existing release and attaches them to it.
+# Called from the app's release.yml, which release-plz starts with the tag
+# it created and which can be run by hand to rebuild a release.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag of the release to build
+        required: true
+        type: string
+      onelf-version:
+        description: onelf release to pack the Linux bundles with; empty for the pinned one
+        required: false
+        type: string
+        default: ""
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+  TAG: ${{ inputs.tag }}
+
+jobs:
+  prepare:
+    name: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: Check the release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null
+      - id: version
+        run: echo "version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)" >> "$GITHUB_OUTPUT"
+
+  # Plain archives. Linux builds on the oldest supported Ubuntu for a low
+  # glibc floor; the binary loads the display and GPU libraries at runtime.
+  build:
+    name: build ${{ matrix.platform }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: x86_64-linux, os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { platform: aarch64-linux, os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { platform: x86_64-macos, os: macos-latest, target: x86_64-apple-darwin }
+          - { platform: aarch64-macos, os: macos-latest, target: aarch64-apple-darwin }
+          - { platform: x86_64-windows, os: windows-latest, target: x86_64-pc-windows-msvc }
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TARGET: ${{ matrix.target }}
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - run: rustup toolchain install stable --profile minimal --target "$TARGET" && rustup default stable
+      - run: cargo build --release --locked --target "$TARGET"
+      - run: sh scripts/package.sh "$TARGET" "$PLATFORM" "$VERSION"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  # The portable Linux bundle. It is built on Arch, as a glibc and loader
+  # bundled from Ubuntu did not run on other systems. onelf carries every
+  # library the binary loads, Arch's Mesa included unless the app's
+  # onelf.toml turns it off.
+  onelf:
+    name: onelf ${{ matrix.platform }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    container:
+      image: ${{ matrix.image }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86_64-linux
+            os: ubuntu-latest
+            image: archlinux:latest@sha256:e43f1fd80e073992c5f173efbbbf65144170bf60aeb7369940087d63eacea8f4
+            onelf-sha256: 65121bb1abebed95191615218a4a5c6fdb97a410d8625d6ebc2fce3c09881dd6
+          - platform: aarch64-linux
+            os: ubuntu-24.04-arm
+            image: menci/archlinuxarm:latest@sha256:a3330643ab216afdeb1a15b78925e90f370484a49b5a220f8d617f4b443701b8
+            onelf-sha256: ae0d80d206b2fbbefda122c0a17a543a18c40557a58847090a03722113a2410f
+    env:
+      # The onelf release whose binaries the matrix pins by SHA-256. Bump
+      # the two together.
+      PINNED_ONELF_VERSION: 0.4.2
+      PINNED_ONELF_SHA256: ${{ matrix.onelf-sha256 }}
+      ONELF_VERSION: ${{ inputs.onelf-version }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - name: Install build packages
+        run: |
+          pacman -Syu --disable-sandbox --noconfirm --needed \
+            base-devel git rustup patchelf wayland libxkbcommon libxkbcommon-x11 \
+            libx11 libxcursor libxi libxrandr mesa jq
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - run: rustup default stable
+      - run: cargo build --release --locked
+      # Another version than the pinned one is checked against the digest
+      # GitHub lists for its asset, which catches a corrupted download but
+      # trusts the release as published.
+      - name: Install onelf
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=${ONELF_VERSION:-$PINNED_ONELF_VERSION}
+          case $version in
+          '' | *[!0-9A-Za-z.-]*)
+            echo "not an onelf version: $version" >&2
+            exit 1
+            ;;
+          esac
+          asset="onelf-$PLATFORM"
+          if [ "$version" = "$PINNED_ONELF_VERSION" ]; then
+            sha256=$PINNED_ONELF_SHA256
+          else
+            sha256=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/QaidVoid/onelf/releases/tags/$version" |
+              jq -r --arg asset "$asset" '.assets[] | select(.name == $asset) | .digest' |
+              sed -n 's/^sha256://p')
+          fi
+          if [ -z "$sha256" ]; then
+            echo "onelf $version has no $asset with a SHA-256 digest" >&2
+            exit 1
+          fi
+          curl -fsSL -o /usr/local/bin/onelf \
+            "https://github.com/QaidVoid/onelf/releases/download/$version/$asset"
+          echo "$sha256  /usr/local/bin/onelf" | sha256sum -c -
+          chmod +x /usr/local/bin/onelf
+          onelf --version
+      - run: sh scripts/package-onelf.sh "$PLATFORM" "$VERSION"
+      - name: Smoke run the bundle
+        run: |
+          pacman -S --disable-sandbox --noconfirm --needed xorg-server-xvfb xorg-xauth
+          xvfb-run -a timeout 60 dist/*.onelf --smoke
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-onelf-${{ matrix.platform }}
+          path: dist/*.onelf
+          if-no-files-found: error
+
+  # Uploads every asset at once, so a release never ends up with some
+  # platforms missing. Re-running the failed jobs finishes it.
+  publish:
+    name: publish
+    needs: [build, onelf]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
