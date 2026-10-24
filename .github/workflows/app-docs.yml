@@ -10,8 +10,6 @@ permissions: {}
 jobs:
   build:
     name: build
-    # A template repository has no Pages site.
-    if: ${{ !github.event.repository.is_template }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
