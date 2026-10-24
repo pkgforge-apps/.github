@@ -7,8 +7,8 @@
 ## About
 
 pkgforge-apps is a sub-organization of [PkgForge](https://github.com/pkgforge).
-It builds lightweight native replacements for heavyweight desktop apps,
-Electron apps in particular.
+It builds lightweight native desktop apps: original ones, and
+alternatives to heavyweight apps, Electron apps in particular.
 
 Every app here is a single Rust binary drawn with
 [egui](https://github.com/emilk/egui) or
@@ -28,11 +28,6 @@ Each release ships:
 
 The portable Linux builds are [onelf](https://github.com/QaidVoid/onelf)
 bundles. They also install through [soar](https://github.com/pkgforge/soar).
-
-## Apps
-
-| App | Replaces | Description |
-|-----|----------|-------------|
 
 ## Contributing
 

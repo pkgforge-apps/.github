@@ -13,10 +13,10 @@ never in an app; an edit made in an app is overwritten by the next sync.
 
 ## Purpose
 
-pkgforge-apps builds lightweight native replacements for heavyweight
-desktop apps, Electron apps in particular. Each app is a single Rust
-binary. Small binary, fast start, low memory: if a change works against
-those, it needs a strong reason.
+pkgforge-apps builds lightweight native desktop apps: original ones,
+and alternatives to heavyweight apps, Electron apps in particular. Each
+app is a single Rust binary. Small binary, fast start, low memory: if a
+change works against those, it needs a strong reason.
 
 ### Choosing the GUI library
 
