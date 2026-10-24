@@ -126,23 +126,40 @@ always use the pinned version.
 
 ## Publishing to crates.io
 
-Apps are git-only by default. When an app should also be installable
-with `cargo install`:
+Apps are git-only by default: release-plz reads versions from git tags
+and never runs `cargo publish`. An app can also publish to crates.io, so
+it installs with `cargo install`. The shared workflows need no change:
+the `release` job already has `id-token: write`, and without a
+`CARGO_REGISTRY_TOKEN` release-plz uses crates.io trusted publishing to
+get a publish token for each run. Never add that secret.
 
-1. Remove `git_only = true` from `.release-plz.toml` and `publish = false`
-   from `Cargo.toml`.
-2. Publish the first version by hand, since crates.io trusted publishing
-   cannot create a crate: `cargo publish` with a short-lived token from
-   the user's own account, which they run themselves. Do not store it
-   anywhere.
-3. On crates.io, under the crate's Settings > Trusted Publishing, add
+crates.io cannot create a crate through trusted publishing, so the first
+version is published by hand, and it has to happen before the switch
+lands. Otherwise release-plz's next `release` run tries to publish a
+crate that does not exist yet and fails. In order:
+
+1. Check the crate name is free on crates.io. If it is taken, the crate
+   needs another name, which is a larger change; stop and ask.
+2. Check the crate packages: drop `publish = false` from `Cargo.toml`
+   locally, without committing, and run
+   `cargo publish --dry-run --locked`.
+3. Publish the version `main` is at, which is the last release, from
+   that same local change: the user runs `cargo publish --locked` with a
+   short-lived crates.io token of their own, scoped to `publish-new`.
+   Do not store the token anywhere. The registry and the git tags then
+   agree on the current version.
+4. On crates.io, under the crate's Settings > Trusted Publishing, add
    GitHub: owner `pkgforge-apps`, repository `<name>`, workflow
    `release-plz.yml`, no environment. crates.io checks the workflow the
    run started from, which is the app's caller, not the shared
    reusable workflow.
-4. Nothing else changes: the `release` job already has `id-token: write`,
-   and release-plz exchanges it for a publish token when no
-   `CARGO_REGISTRY_TOKEN` is set.
+5. Commit the switch as `chore: publish to crates.io`: remove
+   `git_only = true` from `.release-plz.toml` and `publish = false` from
+   `Cargo.toml`. From the next release on, release-plz publishes the
+   crate, then tags and releases it as before.
+6. Point the install instructions at crates.io:
+   `cargo install --locked <name>` in the README and
+   `docs/guide/installation.md`.
 
 ## Adding a target
 
