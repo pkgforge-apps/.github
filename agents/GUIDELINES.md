@@ -190,6 +190,13 @@ opens a system library, an onelf upgrade, or a feature that reaches a
 new part of the system such as audio, file dialogs or notifications.
 The `onelf` skill covers inspecting and debugging a bundle.
 
+An app may also ship an Anylinux AppImage, for users and managers that
+expect that format. It is built by the `anylinux-appimage` skill in an
+Arch container and is a second format, not a replacement for the onelf
+bundle. The release pipeline does not build one: an app that ships it
+adds its own workflow, and the asset reaches the release only through
+the skill's instructions.
+
 Apps are not published to crates.io by default. When one should be,
 publish it through crates.io trusted publishing, never with a token
 stored in repository secrets.
@@ -247,6 +254,7 @@ Procedures live in `.agents/skills/`. Claude Code only looks in
 `scripts/sync-guidelines.sh` creates. These are shared by every app:
 
 - `add-dependency` vets and adds a crate, or decides to inline it.
+- `anylinux-appimage` packages the app as an Anylinux AppImage.
 - `app-icon` designs the icon and regenerates every raster.
 - `app-docs` personalizes the docs site.
 - `release` explains and troubleshoots the release pipeline, including
