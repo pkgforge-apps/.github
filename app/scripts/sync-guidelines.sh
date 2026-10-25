@@ -34,8 +34,12 @@ if [ -n "${PKGFORGE_SHARED:-}" ]; then
     origin="local checkout at $sha, not a published revision"
 else
     ref=${PKGFORGE_SHARED_REF:-main}
-    sha=$(curl -fsSL -H 'Accept: application/vnd.github.sha' \
-        "https://api.github.com/repos/$repo/commits/$ref")
+    if printf '%s' "$ref" | grep -Eq '^[0-9a-f]{40}$'; then
+        sha=$ref
+    else
+        sha=$(curl -fsSL -H 'Accept: application/vnd.github.sha' \
+            "https://api.github.com/repos/$repo/commits/$ref")
+    fi
     mkdir "$work/src"
     curl -fsSL "https://codeload.github.com/$repo/tar.gz/$sha" |
         tar -xzf - -C "$work/src" --strip-components=1

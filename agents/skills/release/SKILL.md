@@ -20,7 +20,7 @@ pinned to the revision they were synced from:
 | `release.yml` | `app-release.yml` with a `tag` input | `release-plz.yml`, or by hand |
 
 A change to how apps release is made in pkgforge-apps/.github and
-reaches every app through its weekly sync pull request; see the
+reaches every app through its sync pull request; see the
 `sync-guidelines` skill.
 
 ## How a release happens

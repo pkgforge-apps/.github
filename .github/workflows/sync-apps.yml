@@ -1,0 +1,85 @@
+name: sync-apps
+
+# Brings every app's copy of the shared files up to this revision. Each
+# repository pkgforge-apps-bot is installed on that carries
+# .agents/shared-guidelines.lock gets its own scripts/sync-guidelines.sh
+# run against this commit, and any change is offered as a pull request
+# on chore/sync-guidelines, refreshed on every run until it is merged.
+#
+# The bot's token does the pushing: a sync rewrites workflow files, which
+# needs the workflows permission GITHUB_TOKEN never has, and a pull
+# request the bot opens starts the app's CI by itself. Its key stays in
+# this repository; the apps hold no credential.
+on:
+  push:
+    branches: [main]
+    paths: [agents/**, app/**]
+  workflow_dispatch:
+
+concurrency:
+  group: sync-apps
+
+permissions: {}
+
+jobs:
+  sync:
+    # Skipped until the App's client ID and key are set on this repository.
+    if: vars.APP_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      BRANCH: chore/sync-guidelines
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+      - name: Sync every app
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          id=$(gh api "users/${SLUG}[bot]" --jq .id)
+          git config --global user.name "${SLUG}[bot]"
+          git config --global user.email "$id+${SLUG}[bot]@users.noreply.github.com"
+          gh api --paginate /installation/repositories \
+            --jq '.repositories[] | select(.archived | not) | .full_name' > repos
+
+          # sync_app <repo>: sync one app and offer the change.
+          sync_app() {
+            gh api "repos/$1/contents/.agents/shared-guidelines.lock" > /dev/null 2>&1 ||
+              return 0
+            dir=$(mktemp -d)
+            git clone --quiet --depth 1 \
+              "https://x-access-token:$GH_TOKEN@github.com/$1.git" "$dir" || return 1
+            PKGFORGE_SHARED_REF=$GITHUB_SHA sh "$dir/scripts/sync-guidelines.sh" || return 1
+            if [ -z "$(git -C "$dir" status --porcelain)" ]; then
+              echo "$1: in sync"
+              return 0
+            fi
+            git -C "$dir" switch --quiet -c "$BRANCH" &&
+              git -C "$dir" add -A &&
+              git -C "$dir" commit --quiet -m "chore: sync shared guidelines" &&
+              git -C "$dir" push --quiet --force origin "$BRANCH" || return 1
+            if [ -z "$(gh pr list -R "$1" --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+              gh pr create -R "$1" --head "$BRANCH" --title "chore: sync shared guidelines" \
+                --body "Brings the shared guidelines, skills, scripts and workflows up to date with pkgforge-apps/.github@$GITHUB_SHA." ||
+                return 1
+            fi
+            echo "$1: proposed"
+          }
+
+          failed=
+          while read -r repo; do
+            sync_app "$repo" || failed="$failed $repo"
+          done < repos
+          if [ -n "$failed" ]; then
+            echo "failed:$failed" >&2
+            exit 1
+          fi

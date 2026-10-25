@@ -6,8 +6,9 @@ these rules, so the repositories stay consistent with each other.
 These guidelines, the shared skills, the shared scripts and the CI and
 release workflows live in
 [pkgforge-apps/.github](https://github.com/pkgforge-apps/.github). Each
-app carries a copy that `scripts/sync-guidelines.sh` refreshes, and a
-weekly workflow opens a pull request when they change. Edit them there,
+app carries a copy that `scripts/sync-guidelines.sh` refreshes. When
+they change there, pkgforge-apps-bot opens a pull request in every app
+with the update. Edit them there,
 never in an app; an edit made in an app is overwritten by the next sync.
 `.agents/shared-guidelines.lock` lists every shared file.
 
@@ -246,7 +247,7 @@ design rules.
 |-- .agents/skills/      shared and app-specific skills
 |-- .claude/skills/      a symlink per skill, for Claude Code
 `-- .github/workflows/   shared callers: ci, release-plz, release,
-                         docs, sync-guidelines
+                         docs
 ```
 
 ## Skills

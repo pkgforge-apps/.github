@@ -1,6 +1,6 @@
 ---
 name: sync-guidelines
-description: Refresh a pkgforge-apps app's copy of the shared guidelines, skills, scripts and workflows from pkgforge-apps/.github, or change the shared copy itself. Use when the shared files changed, when the weekly sync pull request needs attention, when a rule, skill, script or workflow should apply to every app, or when one of them looks out of date in an app.
+description: Refresh a pkgforge-apps app's copy of the shared guidelines, skills, scripts and workflows from pkgforge-apps/.github, or change the shared copy itself. Use when the shared files changed, when a sync pull request needs attention, when a rule, skill, script or workflow should apply to every app, or when one of them looks out of date in an app.
 ---
 
 # Shared files
@@ -47,8 +47,11 @@ and removes shared skills and files that no longer exist upstream.
 `PKGFORGE_SHARED_REF=<ref>` syncs from another branch, tag or commit.
 Review the diff and commit it as `chore: sync shared guidelines`.
 
-The `sync-guidelines` workflow runs the script weekly and opens or
-updates a pull request with the result, so apps rarely need it by hand.
+The `sync-apps` workflow of pkgforge-apps/.github runs it in every app
+whenever `agents/` or `app/` changes there, and opens or updates a
+`chore/sync-guidelines` pull request with the result as
+pkgforge-apps-bot, so apps rarely need it by hand. The bot's pull
+requests start the app's CI like anyone's.
 
 ## Change a shared file
 
@@ -61,9 +64,10 @@ updates a pull request with the result, so apps rarely need it by hand.
    ```
 
    The lock then records a local checkout; do not commit that sync.
-3. Land the change in pkgforge-apps/.github. Every app picks it up at
-   its next weekly sync, or run the workflow by hand to roll it out now:
-   `gh workflow run sync-guidelines.yml -R pkgforge-apps/<app>`.
+3. Land the change in pkgforge-apps/.github. `sync-apps` opens a pull
+   request in every app right away. To rerun it, for an app added since
+   or after fixing a failed run:
+   `gh workflow run sync-apps.yml -R pkgforge-apps/.github`.
 
 ## Rules
 

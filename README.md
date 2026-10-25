@@ -17,12 +17,16 @@ Organization-wide files for [pkgforge-apps](https://github.com/pkgforge-apps).
     |-- app-release.yml        archives, onelf bundles and opt-in
     |                          AppImages for a tag
     |-- app-docs.yml           docs site to GitHub Pages
-    `-- app-sync-guidelines.yml  the weekly sync pull request
+    `-- sync-apps.yml          runs here: the sync pull request in
+                               every app
 ```
 
 Every app copies `agents/` and `app/` with its
 `scripts/sync-guidelines.sh`, which also pins the copied workflows to
-the commit it synced from. A weekly workflow in each app runs it and
-opens a pull request when something changed, so a change here reaches
-every app through those pull requests. The `sync-guidelines` skill
-describes the process.
+the commit it synced from. A push here that changes either starts
+`sync-apps`, which runs that script in every app against the new commit
+and opens a pull request wherever something changed. It acts as the
+`pkgforge-apps-bot` GitHub App, whose key is kept only in this
+repository: a sync rewrites workflow files, which `GITHUB_TOKEN` cannot
+push, and the pull requests the bot opens start the apps' CI. The
+`sync-guidelines` skill describes the process.
