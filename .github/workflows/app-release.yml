@@ -88,8 +88,9 @@ jobs:
 
   # The portable Linux bundle. It is built on Arch, as a glibc and loader
   # bundled from Ubuntu did not run on other systems. onelf carries every
-  # library the binary loads, Arch's Mesa included unless the app's
-  # onelf.toml turns it off.
+  # library the binary loads, Mesa included unless the app's onelf.toml
+  # turns it off: the Mesa built without LLVM by onelf-pkgs/mesa, put in
+  # place of Arch's before the bundle is built.
   onelf:
     name: onelf ${{ matrix.platform }}
     needs: prepare
@@ -106,16 +107,22 @@ jobs:
             os: ubuntu-latest
             image: archlinux:latest@sha256:e43f1fd80e073992c5f173efbbbf65144170bf60aeb7369940087d63eacea8f4
             onelf-sha256: 65121bb1abebed95191615218a4a5c6fdb97a410d8625d6ebc2fce3c09881dd6
+            mesa-sha256: 0a9c2b015c7c848f5d64d5fd871b4ee39acded90e210ec24626f95fffe53c50e
           - platform: aarch64-linux
             os: ubuntu-24.04-arm
             image: menci/archlinuxarm:latest@sha256:a3330643ab216afdeb1a15b78925e90f370484a49b5a220f8d617f4b443701b8
             onelf-sha256: ae0d80d206b2fbbefda122c0a17a543a18c40557a58847090a03722113a2410f
+            mesa-sha256: 4c86a13e2e5b5ae43a9de584dbee48d4aec32c145ecc5ec6d76fe1ba52040063
     env:
       # The onelf release whose binaries the matrix pins by SHA-256. Bump
       # the two together.
       PINNED_ONELF_VERSION: 0.4.2
       PINNED_ONELF_SHA256: ${{ matrix.onelf-sha256 }}
       ONELF_VERSION: ${{ inputs.onelf-version }}
+      # The onelf-pkgs/mesa release whose GL trees the matrix pins by
+      # SHA-256. Bump the three together.
+      MESA_RELEASE: v26.2.5-1
+      MESA_SHA256: ${{ matrix.mesa-sha256 }}
       VERSION: ${{ needs.prepare.outputs.version }}
       PLATFORM: ${{ matrix.platform }}
     steps:
@@ -123,7 +130,22 @@ jobs:
         run: |
           pacman -Syu --disable-sandbox --noconfirm --needed \
             base-devel git rustup patchelf wayland libxkbcommon libxkbcommon-x11 \
-            libx11 libxcursor libxi libxrandr mesa jq
+            libx11 libxcursor libxi libxrandr mesa jq xorg-server-xvfb xorg-xauth
+      # Arch's package stays only for the libraries Mesa needs. Its own
+      # files give way to onelf-pkgs' Mesa, and the tree adds whatever its
+      # drivers need that Arch lacks without replacing what Arch has.
+      - name: Install onelf-pkgs Mesa
+        run: |
+          tree="gl-${PLATFORM%-linux}.tar.zst"
+          curl -fsSL -o "/tmp/$tree" \
+            "https://github.com/onelf-pkgs/mesa/releases/download/$MESA_RELEASE/$tree"
+          echo "$MESA_SHA256  /tmp/$tree" | sha256sum -c -
+          mkdir /tmp/gl
+          tar --zstd -xf "/tmp/$tree" -C /tmp/gl
+          pacman -Rdd --disable-sandbox --noconfirm mesa
+          cp -an /tmp/gl/lib/. /usr/lib/
+          cp -an /tmp/gl/share/. /usr/share/
+          ldconfig
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TAG }}
@@ -164,9 +186,7 @@ jobs:
           onelf --version
       - run: sh scripts/package-onelf.sh "$PLATFORM" "$VERSION"
       - name: Smoke run the bundle
-        run: |
-          pacman -S --disable-sandbox --noconfirm --needed xorg-server-xvfb xorg-xauth
-          xvfb-run -a timeout 60 dist/*.onelf --smoke
+        run: xvfb-run -a timeout 60 dist/*.onelf --smoke
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist-onelf-${{ matrix.platform }}

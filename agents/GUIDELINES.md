@@ -180,8 +180,9 @@ published; every asset carries a build provenance attestation instead.
 
 The onelf bundle uses the stipplefs payload. An egui app's bundle
 carries Mesa, so it draws on hosts without a usable GL stack, musl
-distributions included; NVIDIA's driver still comes from the host. Mesa
-makes the bundle around 60 MB; do not drop it to save space. A smudge
+distributions included; NVIDIA's driver still comes from the host. It
+is the Mesa [onelf-pkgs/mesa](https://github.com/onelf-pkgs/mesa) builds
+without LLVM, which adds about 8 MB; do not drop it to save space. A smudge
 app drawing with its CPU renderer needs no GL, so it turns `gl` and
 `dri` off in `onelf.toml`; confirm with the `test-linux-bundle` skill.
 

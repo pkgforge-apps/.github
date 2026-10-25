@@ -35,7 +35,7 @@ The parts of `onelf.toml` an app changes:
 | Key | Meaning |
 |-----|---------|
 | `[compression] payload = "stipple"` | the stipplefs image, smaller than the default blocks; keep it |
-| `[bundle] gl`, `dri` | bundle Mesa from the build host; keep both on for egui apps |
+| `[bundle] gl`, `dri` | bundle Mesa from the build host, where the release job puts onelf-pkgs/mesa; keep both on for egui apps |
 | `scan-dlopen` | scan the binary's strings for sonames it opens at runtime |
 | `include` | sonames to bundle that the scan cannot see, such as the X11 libraries winit opens by name |
 | `exclude` | soname prefixes to leave out |

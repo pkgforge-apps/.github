@@ -56,8 +56,16 @@ the release PR, or use `feat!:` and `BREAKING CHANGE:` for a major bump.
 | appimage | Arch containers, when opted in | `<app>-<arch>-linux.AppImage` and its `.zsync` |
 
 Packaging is in `scripts/package.sh`, `scripts/package-onelf.sh` and
-`scripts/package-appimage.sh`, so it runs the same locally. No `.sha256` files: users verify with
-`gh attestation verify <file> -R pkgforge-apps/<name>`.
+`scripts/package-appimage.sh`, so it runs the same locally. No `.sha256`
+files: users verify with
+
+```sh
+gh attestation verify <file> -R pkgforge-apps/<name> --signer-repo pkgforge-apps/.github
+```
+
+The attestation is signed by the shared workflow in
+pkgforge-apps/.github, so `-R` alone, which expects the app's own
+workflow, refuses it.
 
 ### The onelf bundle
 
@@ -67,12 +75,19 @@ uses them) and force-includes the X11 libraries winit loads by name. The
 bundle is built on Arch, because glibc bundled from Ubuntu did not run
 everywhere, and the job smoke-runs it under Xvfb.
 
-It also bundles Arch's Mesa (`gl` and `dri`). Without it the app fails
-on any host where onelf finds no usable GL: Alpine and other musl
+It also bundles Mesa (`gl` and `dri`). Without it the app fails on any
+host where onelf finds no usable GL: Alpine and other musl
 distributions, whose drivers a glibc process cannot load, and minimal
-VMs and containers without Mesa. Mesa and its `libLLVM` take the bundle
-from about 7 MB to about 60 MB. NVIDIA's proprietary driver is still
+VMs and containers without Mesa. NVIDIA's proprietary driver is still
 taken from the host when installed.
+
+The Mesa is [onelf-pkgs/mesa](https://github.com/onelf-pkgs/mesa)'s,
+built without LLVM, not Arch's, whose `libLLVM` took the bundle from
+about 7 MB to about 60 MB; this one adds about 8 MB. The job installs
+Arch's `mesa` for the libraries Mesa needs, removes the package's own
+files, and copies in the release's GL tree, so onelf bundles it as the
+build host's Mesa. Its software renderer is softpipe, slower than
+llvmpipe, which needs LLVM; hosts with a GPU use their driver as before.
 
 When the app starts loading another library at runtime that the scan
 cannot see, add its soname to `include`. To check what a bundle carries:
@@ -96,6 +111,17 @@ gh api repos/QaidVoid/onelf/releases/tags/<version> \
 
 Then build the bundle with the new onelf and run the
 `test-linux-bundle` skill on it before merging.
+
+To bump Mesa, update `MESA_RELEASE` and both `mesa-sha256` values in the
+same file, from the GL trees of the new
+[onelf-pkgs/mesa release](https://github.com/onelf-pkgs/mesa/releases):
+
+```sh
+gh api repos/onelf-pkgs/mesa/releases/tags/<tag> \
+  --jq '.assets[] | select(.name | startswith("gl-") and endswith(".tar.zst")) | "\(.name) \(.digest)"'
+```
+
+Test a bundle built with it the same way.
 
 To try another onelf on one release without changing the pin, rebuild
 its assets with the `onelf-version` input:
