@@ -38,9 +38,9 @@ reaches every app through its weekly sync pull request; see the
    with the changelog section.
 4. A release created with `GITHUB_TOKEN` cannot trigger `on: release`
    workflows, but `workflow_dispatch` is exempt, so `release` starts
-   `release.yml` with the new tag. It builds the assets in the `build`
-   and `onelf` jobs, and `publish` uploads them all at once, with build
-   provenance attestations.
+   `release.yml` with the new tag. It builds the assets in the `build`,
+   `onelf` and, when the app ships one, `appimage` jobs, and `publish`
+   uploads them all at once, with build provenance attestations.
 
 To release, merge the release PR. To change the next version, edit it in
 the release PR, or use `feat!:` and `BREAKING CHANGE:` for a major bump.
@@ -53,9 +53,10 @@ the release PR, or use `feat!:` and `BREAKING CHANGE:` for a major bump.
 | build | macos-latest, both arches | `<app>-<arch>-macos.tar.xz` with the `.app` |
 | build | windows-latest | `<app>-x86_64-windows.zip` |
 | onelf | Arch containers | `<app>-<arch>-linux.onelf` |
+| appimage | Arch containers, when opted in | `<app>-<arch>-linux.AppImage` and its `.zsync` |
 
-Packaging is in `scripts/package.sh` and `scripts/package-onelf.sh`, so
-it runs the same locally. No `.sha256` files: users verify with
+Packaging is in `scripts/package.sh`, `scripts/package-onelf.sh` and
+`scripts/package-appimage.sh`, so it runs the same locally. No `.sha256` files: users verify with
 `gh attestation verify <file> -R pkgforge-apps/<name>`.
 
 ### The onelf bundle
@@ -84,7 +85,7 @@ The `onelf` skill covers debugging a bundle, and the `test-linux-bundle`
 skill checks one on the hosts users have. Run the latter before merging
 any change to `onelf.toml`.
 
-To bump onelf, update `ONELF_VERSION` and both `onelf-sha256` values in
+To bump onelf, update `PINNED_ONELF_VERSION` and both `onelf-sha256` values in
 `.github/workflows/app-release.yml` of pkgforge-apps/.github. It is
 shared, so the bump reaches every app. GitHub lists the digests:
 
@@ -106,6 +107,19 @@ gh workflow run release.yml -f tag=<version> -f onelf-version=<onelf version>
 That version is checked against the SHA-256 digest GitHub lists for its
 release asset rather than a pinned one. Releases started by release-plz
 always use the pinned version.
+
+### The AppImage
+
+An app ships an Anylinux AppImage next to the onelf bundle by setting
+this in its `Cargo.toml`:
+
+```toml
+[package.metadata.pkgforge]
+appimage = true
+```
+
+The `appimage` job is skipped otherwise. The `anylinux-appimage` skill
+covers building, checking and debugging the image.
 
 ## Troubleshooting
 

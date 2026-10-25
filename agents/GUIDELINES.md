@@ -169,6 +169,7 @@ the pipeline. In short:
 | Platform | Asset |
 |----------|-------|
 | Linux, portable | `<app>-<arch>-linux.onelf` |
+| Linux, AppImage, opt-in | `<app>-<arch>-linux.AppImage` and its `.zsync` |
 | Linux | `<app>-<arch>-linux.tar.xz` |
 | macOS | `<app>-<arch>-macos.tar.xz` with an `.app` bundle |
 | Windows | `<app>-x86_64-windows.zip` |
@@ -191,11 +192,11 @@ new part of the system such as audio, file dialogs or notifications.
 The `onelf` skill covers inspecting and debugging a bundle.
 
 An app may also ship an Anylinux AppImage, for users and managers that
-expect that format. It is built by the `anylinux-appimage` skill in an
-Arch container and is a second format, not a replacement for the onelf
-bundle. The release pipeline does not build one: an app that ships it
-adds its own workflow, and the asset reaches the release only through
-the skill's instructions.
+expect that format, by setting `appimage = true` under
+`[package.metadata.pkgforge]` in `Cargo.toml`. It is a second format,
+not a replacement for the onelf bundle. The release pipeline builds it
+with `scripts/package-appimage.sh`; the `anylinux-appimage` skill
+covers it.
 
 Apps are not published to crates.io by default. When one should be,
 publish it through crates.io trusted publishing, never with a token

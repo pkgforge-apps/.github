@@ -30,6 +30,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
+      appimage: ${{ steps.appimage.outputs.appimage }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,6 +42,11 @@ jobs:
         run: gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null
       - id: version
         run: echo "version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)" >> "$GITHUB_OUTPUT"
+      - id: appimage
+        run: |
+          appimage=$(cargo metadata --no-deps --format-version 1 |
+            jq -r '.packages[0].metadata.pkgforge.appimage // false')
+          echo "appimage=$appimage" >> "$GITHUB_OUTPUT"
 
   # Plain archives. Linux builds on the oldest supported Ubuntu for a low
   # glibc floor; the binary loads the display and GPU libraries at runtime.
@@ -167,11 +173,63 @@ jobs:
           path: dist/*.onelf
           if-no-files-found: error
 
+  # The Anylinux AppImage, for an app whose Cargo.toml sets `appimage =
+  # true` under [package.metadata.pkgforge]. It carries the debloated
+  # Arch packages, which are much smaller than Arch's own.
+  appimage:
+    name: appimage ${{ matrix.platform }}
+    needs: prepare
+    if: needs.prepare.outputs.appimage == 'true'
+    runs-on: ${{ matrix.os }}
+    container:
+      image: ghcr.io/pkgforge-dev/archlinux:latest@sha256:782f92dd4cd2adee5544ec7fc53d06a9168489041fae13271b418123c858d5e7
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: x86_64-linux, os: ubuntu-latest }
+          - { platform: aarch64-linux, os: ubuntu-24.04-arm }
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PLATFORM: ${{ matrix.platform }}
+      # The Anylinux-AppImages commit the packaging tools come from.
+      # quick-sharun pins the tools it downloads in turn.
+      QUICK_SHARUN: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/c28bb80743106fdf08cb10fb27d19d9932eb0865/useful-tools/quick-sharun.sh
+      DEBLOATED_PACKAGES: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/c28bb80743106fdf08cb10fb27d19d9932eb0865/useful-tools/get-debloated-pkgs.sh
+      MAKE_AUR_PACKAGE: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/c28bb80743106fdf08cb10fb27d19d9932eb0865/useful-tools/make-aur-package.sh
+    steps:
+      - uses: pkgforge-dev/anylinux-setup-action@ba7321e11074f9e387a0634e653d09b115d576cd # v6
+      - name: Install build packages
+        run: |
+          pacman -S --noconfirm --needed rustup wayland libxkbcommon \
+            libxkbcommon-x11 libx11 libxcursor libxi libxrandr xorg-xauth
+          get-debloated-pkgs --add-common --prefer-nano
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - run: rustup default stable
+      - run: cargo build --release --locked
+      - run: sh scripts/package-appimage.sh "$PLATFORM" "$VERSION"
+      - name: Smoke run the AppImage
+        run: xvfb-run -a timeout 60 dist/*.AppImage --smoke
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-appimage-${{ matrix.platform }}
+          path: |
+            dist/*.AppImage
+            dist/*.AppImage.zsync
+          if-no-files-found: error
+
   # Uploads every asset at once, so a release never ends up with some
-  # platforms missing. Re-running the failed jobs finishes it.
+  # platforms missing. Re-running the failed jobs finishes it. The
+  # AppImage job is skipped for an app that ships none.
   publish:
     name: publish
-    needs: [build, onelf]
+    needs: [build, onelf, appimage]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
