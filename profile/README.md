@@ -1,5 +1,8 @@
 <p align="center">
-  <b><a href="https://github.com/pkgforge-apps">pkgforge-apps</a></b>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pkgforge-apps/.github/main/profile/assets/pkgforge-apps-lockup-dark.svg">
+    <img src="https://raw.githubusercontent.com/pkgforge-apps/.github/main/profile/assets/pkgforge-apps-lockup-light.svg" alt="pkgforge-apps" width="515">
+  </picture>
 </p>
 
 ---
