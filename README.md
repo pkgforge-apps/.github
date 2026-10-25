@@ -14,7 +14,8 @@ Organization-wide files for [pkgforge-apps](https://github.com/pkgforge-apps).
 `-- .github/workflows/
     |-- app-ci.yml             lint, tests, smoke run, docs build
     |-- app-release-plz.yml    release PR, tag and GitHub release
-    |-- app-release.yml        archives and onelf bundles for a tag
+    |-- app-release.yml        archives, onelf bundles and opt-in
+    |                          AppImages for a tag
     |-- app-docs.yml           docs site to GitHub Pages
     `-- app-sync-guidelines.yml  the weekly sync pull request
 ```

@@ -23,7 +23,8 @@ replacement, for users and AppImage managers that expect it.
 
 ## Ship one
 
-Opt in from the app's `Cargo.toml`:
+Opt in from the app's `Cargo.toml`, where the template sets it to
+`false`:
 
 ```toml
 [package.metadata.pkgforge]
@@ -33,7 +34,15 @@ appimage = true
 The `appimage` job of the shared `app-release.yml` then builds
 `<app>-<arch>-linux.AppImage` and its `.zsync` for x86_64 and aarch64,
 smoke-runs the image under Xvfb, and hands both to `publish` with every
-other asset. Nothing else is needed in the app.
+other asset.
+
+Tell users about it in the same change:
+
+- set `appimage: true` in `docs/.vitepress/app.ts`, which adds it to the
+  docs site's downloads;
+- keep the parts of `README.md` and `docs/guide/installation.md` marked
+  `<!-- AppImage` and the README's AppImage table row. An app that opts
+  out again deletes them.
 
 The `.zsync` is what keeps installed copies current: the update
 information points at `*<arch>-linux.AppImage.zsync` on the latest
