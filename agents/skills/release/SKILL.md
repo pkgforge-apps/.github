@@ -50,8 +50,8 @@ the release PR, or use `feat!:` and `BREAKING CHANGE:` for a major bump.
 | Job | Runner | Output |
 |-----|--------|--------|
 | build | ubuntu-22.04 (low glibc floor), ubuntu-22.04-arm | `<app>-<arch>-linux.tar.xz` |
-| build | macos-latest, both arches | `<app>-<arch>-macos.tar.xz` with the `.app` |
-| build | windows-latest | `<app>-x86_64-windows.zip` |
+| build | macos-latest, both arches | `<app>-<arch>-macos.dmg` with the `.app` |
+| build | windows-latest | `<app>-x86_64-windows.exe`, the C runtime linked in |
 | onelf | Arch containers | `<app>-<arch>-linux.onelf` |
 | appimage | Arch containers, when opted in | `<app>-<arch>-linux.AppImage` and its `.zsync` |
 

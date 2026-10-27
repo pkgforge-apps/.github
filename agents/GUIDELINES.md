@@ -172,12 +172,15 @@ the pipeline. In short:
 | Linux, portable | `<app>-<arch>-linux.onelf` |
 | Linux, AppImage, opt-in | `<app>-<arch>-linux.AppImage` and its `.zsync` |
 | Linux | `<app>-<arch>-linux.tar.xz` |
-| macOS | `<app>-<arch>-macos.tar.xz` with an `.app` bundle |
-| Windows | `<app>-x86_64-windows.zip` |
+| macOS | `<app>-<arch>-macos.dmg` with an `.app` bundle |
+| Windows | `<app>-x86_64-windows.exe` |
 
-Linux and macOS archives are `.tar.xz`, Windows archives are `.zip`,
-and the `.onelf` bundle is shipped as is. No checksum files are
-published; every asset carries a build provenance attestation instead.
+Only the plain Linux build is an archive, since it carries a desktop
+entry and icons. The macOS disk image opens to the app and an
+Applications link, the Windows executable runs as is with the C runtime
+linked in, and the `.onelf` and `.AppImage` are single files. No
+checksum files are published; every asset carries a build provenance
+attestation instead.
 
 The onelf bundle uses the stipplefs payload. An egui app's bundle
 carries Mesa, so it draws on hosts without a usable GL stack, musl
@@ -239,7 +242,7 @@ design rules.
 |   |-- check.sh         every CI gate
 |   |-- check-ascii.sh   the ASCII rule
 |   |-- icons.sh         icon generation
-|   |-- package.sh       release archives
+|   |-- package.sh       Linux archive, macOS disk image, Windows exe
 |   |-- package-onelf.sh portable Linux bundle
 |   `-- sync-guidelines.sh  refresh every shared file
 |-- onelf.toml           onelf recipe

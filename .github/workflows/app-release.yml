@@ -48,8 +48,9 @@ jobs:
             jq -r '.packages[0].metadata.pkgforge.appimage // false')
           echo "appimage=$appimage" >> "$GITHUB_OUTPUT"
 
-  # Plain archives. Linux builds on the oldest supported Ubuntu for a low
-  # glibc floor; the binary loads the display and GPU libraries at runtime.
+  # The Linux archive, the macOS disk image and the Windows executable.
+  # Linux builds on the oldest supported Ubuntu for a low glibc floor; the
+  # binary loads the display and GPU libraries at runtime.
   build:
     name: build ${{ matrix.platform }}
     needs: prepare
@@ -72,6 +73,10 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       TARGET: ${{ matrix.target }}
       PLATFORM: ${{ matrix.platform }}
+      # The C runtime goes into the .exe, so it runs on a Windows without
+      # the Visual C++ Redistributable, as ripgrep, uv and Neovide do. Set
+      # for that target alone, it leaves an app's own rustflags elsewhere.
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

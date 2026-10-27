@@ -4,9 +4,11 @@
 # Usage: scripts/package.sh <rust-target> <platform> <version>
 #   scripts/package.sh x86_64-unknown-linux-gnu x86_64-linux 0.1.0
 #
-# Produces dist/<app>-<platform>.tar.xz on Linux and macOS and
-# dist/<app>-<platform>.zip on Windows. Build the release binary for
-# <rust-target> first.
+# Produces, in dist/:
+#   Linux    <app>-<platform>.tar.xz  binary, desktop entry and icons
+#   macOS    <app>-<platform>.dmg     the .app and an Applications link
+#   Windows  <app>-<platform>.exe     the binary itself
+# Build the release binary for <rust-target> first.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -21,11 +23,10 @@ stage=dist/$name
 
 rm -rf "$stage"
 mkdir -p "$stage"
-cp LICENSE README.md "$stage/"
 
 case $target in
 *-linux-*)
-    cp "$bin" "$stage/"
+    cp LICENSE README.md "$bin" "$stage/"
     mkdir -p "$stage/share/applications" "$stage/share/icons/hicolor/scalable/apps"
     cp packaging/linux/app.desktop "$stage/share/applications/$app.desktop"
     cp assets/icon.svg "$stage/share/icons/hicolor/scalable/apps/$app.svg"
@@ -51,11 +52,20 @@ case $target in
     done
     iconutil -c icns "$iconset" -o "$contents/Resources/icon.icns"
     rm -rf "$iconset"
-    tar -C dist -cJf "$stage.tar.xz" "$name"
+    ln -s /Applications "$stage/Applications"
+    # hdiutil on CI runners now and then fails with "Resource busy".
+    attempt=1
+    until hdiutil create -volname "$title" -srcfolder "$stage" -ov \
+        -format UDZO "dist/$name.dmg"; do
+        if [ "$attempt" -ge 3 ]; then
+            exit 1
+        fi
+        attempt=$((attempt + 1))
+        sleep 5
+    done
     ;;
 *-windows-*)
-    cp "$bin.exe" "$stage/"
-    (cd dist && 7z a -tzip "$name.zip" "$name" > /dev/null)
+    cp "$bin.exe" "dist/$name.exe"
     ;;
 *)
     echo "unsupported target: $target" >&2

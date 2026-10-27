@@ -27,8 +27,8 @@ Each release ships:
 | Linux, portable | `<app>-<arch>-linux.onelf`, one file that runs on any distribution |
 | Linux, AppImage | `<app>-<arch>-linux.AppImage`, from apps that also ship one |
 | Linux | `<app>-<arch>-linux.tar.xz` |
-| macOS | `<app>-<arch>-macos.tar.xz` |
-| Windows | `<app>-x86_64-windows.zip` |
+| macOS | `<app>-<arch>-macos.dmg` |
+| Windows | `<app>-x86_64-windows.exe`, nothing to install |
 
 The portable Linux builds are [onelf](https://github.com/QaidVoid/onelf)
 bundles. They also install through [soar](https://github.com/pkgforge/soar).
