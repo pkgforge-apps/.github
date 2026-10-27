@@ -1,8 +1,12 @@
 name: app-release
 
-# Builds every asset of an existing release and attaches them to it.
+# Builds every asset of a draft release, attaches them, and publishes it.
 # Called from the app's release.yml, which release-plz starts with the tag
-# it created and which can be run by hand to rebuild a release.
+# it created and which can be run by hand to retry a failed build.
+#
+# The organization makes published releases immutable: nothing can be
+# added to one. release-plz therefore creates the release as a draft,
+# and it is published only once every asset is attached.
 on:
   workflow_call:
     inputs:
@@ -27,7 +31,8 @@ jobs:
     name: prepare
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # A draft release is visible only to a token that can push.
+      contents: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       appimage: ${{ steps.appimage.outputs.appimage }}
@@ -36,10 +41,15 @@ jobs:
         with:
           ref: ${{ env.TAG }}
           persist-credentials: false
-      - name: Check the release exists
+      - name: Check the release is still a draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null
+        run: |
+          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$draft" != true ]; then
+            echo "$TAG is published, so it is immutable and takes no assets; cut a new release" >&2
+            exit 1
+          fi
       - id: version
         run: echo "version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)" >> "$GITHUB_OUTPUT"
       - id: appimage
@@ -271,4 +281,6 @@ jobs:
           subject-path: dist/*
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+        run: |
+          gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"

@@ -2,8 +2,9 @@ name: app-release-plz
 
 # An app's release flow, called from its release-plz.yml on every push to
 # main. `release` tags a version once its release PR is merged, creates
-# the GitHub release and starts the app's release.yml to build the
-# assets. `release-pr` then opens or refreshes the release PR for what
+# the GitHub release as a draft (the app's .release-plz.toml sets
+# git_release_draft) and starts the app's release.yml, which attaches the
+# assets and publishes it. `release-pr` then opens or refreshes the release PR for what
 # landed since.
 #
 # Everything runs on GITHUB_TOKEN, so the release PR, its commits and the

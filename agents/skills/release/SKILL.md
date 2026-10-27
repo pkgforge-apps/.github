@@ -35,12 +35,19 @@ reaches every app through its sync pull request; see the
    itself. Its checks show on the PR as usual.
 3. Merging the release PR pushes to `main`. `release` now tags the
    version (`<version>`, no `v` prefix) and creates the GitHub release
-   with the changelog section.
+   with the changelog section, as a draft (`git_release_draft` in
+   `.release-plz.toml`).
 4. A release created with `GITHUB_TOKEN` cannot trigger `on: release`
    workflows, but `workflow_dispatch` is exempt, so `release` starts
    `release.yml` with the new tag. It builds the assets in the `build`,
    `onelf` and, when the app ships one, `appimage` jobs, and `publish`
-   uploads them all at once, with build provenance attestations.
+   uploads them all at once, with build provenance attestations, then
+   publishes the release.
+
+The organization enforces immutable releases: once published, a release
+takes no more assets and none can be replaced. That is why it stays a
+draft until `publish` has attached everything, and why a published
+release is never rebuilt; a fix ships as a new release.
 
 To release, merge the release PR. To change the next version, edit it in
 the release PR, or use `feat!:` and `BREAKING CHANGE:` for a major bump.
@@ -123,8 +130,8 @@ gh api repos/onelf-pkgs/mesa/releases/tags/<tag> \
 
 Test a bundle built with it the same way.
 
-To try another onelf on one release without changing the pin, rebuild
-its assets with the `onelf-version` input:
+To try another onelf on a release that is still a draft without
+changing the pin, build its assets with the `onelf-version` input:
 
 ```sh
 gh workflow run release.yml -f tag=<version> -f onelf-version=<onelf version>
@@ -152,13 +159,19 @@ covers building, checking and debugging the image.
 - **No release PR appears.** The repository or organization does not let
   Actions create pull requests. See step 7 of `bootstrap-app`.
 - **A build job failed.** Re-run the failed jobs of the `release` run.
-  When the fix needs a code change, the release has to be rebuilt from
-  a commit the tag does not include, so cut a new release instead.
-  `publish` waits for every build, so a release never ships with
-  platforms missing; it stays without assets until a run succeeds.
-- **A release has no assets at all.** The dispatch did not happen or
+  `publish` waits for every build, so the release stays a draft without
+  assets until a run succeeds, and never ships with platforms missing.
+  When the fix needs a code change the tag does not include, delete the
+  draft and its tag and cut a new release.
+- **A draft release has no assets.** The dispatch did not happen or
   failed. Build them by hand:
   `gh workflow run release.yml -f tag=<version>`.
+- **`is published, so it is immutable`.** The run was started for a
+  release that is already out. Published releases cannot change; ship
+  the fix as a new release.
+- **`Cannot upload assets to an immutable release`.** The release was
+  published before its assets were attached: `git_release_draft = true`
+  is missing from `.release-plz.toml`.
 - **The push that merged the release PR did not start the workflow.**
   Run it manually: `gh workflow run release-plz.yml --ref main`.
 - **The release PR repeats old history.** A tag is missing. Tags are the

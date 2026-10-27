@@ -164,8 +164,11 @@ the pipeline. In short:
 
 1. Every push to `main` refreshes a release PR owned by
    github-actions[bot], with the next version and changelog.
-2. Merging it tags the version and creates the GitHub release.
-3. That starts `release.yml`, which builds and attaches the assets:
+2. Merging it tags the version and creates the GitHub release as a
+   draft.
+3. That starts `release.yml`, which builds and attaches the assets, then
+   publishes the release. The organization makes published releases
+   immutable, so assets go on while it is still a draft:
 
 | Platform | Asset |
 |----------|-------|
