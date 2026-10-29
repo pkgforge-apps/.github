@@ -158,21 +158,9 @@ jobs:
           pacman -Syu --disable-sandbox --noconfirm --needed \
             base-devel git rustup patchelf wayland libxkbcommon libxkbcommon-x11 \
             libx11 libxcursor libxi libxrandr mesa jq xorg-server-xvfb xorg-xauth
-      # Arch's package stays only for the libraries Mesa needs. Its own
-      # files give way to onelf-pkgs' Mesa, and the tree adds whatever its
-      # drivers need that Arch lacks without replacing what Arch has.
-      - name: Install onelf-pkgs Mesa
-        run: |
-          tree="gl-${PLATFORM%-linux}.tar.zst"
-          curl -fsSL -o "/tmp/$tree" \
-            "https://github.com/onelf-pkgs/mesa/releases/download/$MESA_RELEASE/$tree"
-          echo "$MESA_SHA256  /tmp/$tree" | sha256sum -c -
-          mkdir /tmp/gl
-          tar --zstd -xf "/tmp/$tree" -C /tmp/gl
-          pacman -Rdd --disable-sandbox --noconfirm mesa
-          cp -an /tmp/gl/lib/. /usr/lib/
-          cp -an /tmp/gl/share/. /usr/share/
-          ldconfig
+      # Checked out first, so the next step finds the app's package list;
+      # its packages go in before the Mesa swap, so none can pull Arch's
+      # Mesa back over it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TAG }}
@@ -188,6 +176,21 @@ jobs:
           [ -n "$packages" ] || exit 0
           # shellcheck disable=SC2086 # the list is meant to split
           pacman -S --disable-sandbox --noconfirm --needed $packages
+      # Arch's package stays only for the libraries Mesa needs. Its own
+      # files give way to onelf-pkgs' Mesa, and the tree adds whatever its
+      # drivers need that Arch lacks without replacing what Arch has.
+      - name: Install onelf-pkgs Mesa
+        run: |
+          tree="gl-${PLATFORM%-linux}.tar.zst"
+          curl -fsSL -o "/tmp/$tree" \
+            "https://github.com/onelf-pkgs/mesa/releases/download/$MESA_RELEASE/$tree"
+          echo "$MESA_SHA256  /tmp/$tree" | sha256sum -c -
+          mkdir /tmp/gl
+          tar --zstd -xf "/tmp/$tree" -C /tmp/gl
+          pacman -Rdd --disable-sandbox --noconfirm mesa
+          cp -an /tmp/gl/lib/. /usr/lib/
+          cp -an /tmp/gl/share/. /usr/share/
+          ldconfig
       - run: rustup default stable
       - run: cargo build --release --locked
       # Another version than the pinned one is checked against the digest

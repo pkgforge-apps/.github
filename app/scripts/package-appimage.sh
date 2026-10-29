@@ -2,7 +2,7 @@
 # Packs the native release build into an Anylinux AppImage in dist/.
 #
 # Usage: scripts/package-appimage.sh <platform> <version>
-#   scripts/package-appimage.sh x86_64-linux 0.1.0
+#   scripts/package-appimage.sh anylinux-x86_64 0.1.0
 #
 # Produces dist/<app>-<platform>.AppImage and, when GITHUB_REPOSITORY is
 # set, the .zsync its self-updater reads. Runs as root on Arch with the

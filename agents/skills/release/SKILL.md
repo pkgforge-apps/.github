@@ -60,7 +60,7 @@ the release PR, or use `feat!:` and `BREAKING CHANGE:` for a major bump.
 | build | macos-latest, both arches | `<app>-<arch>-macos.dmg` with the `.app` |
 | build | windows-latest | `<app>-x86_64-windows.exe`, the C runtime linked in |
 | onelf | Arch containers | `<app>-<arch>-linux.onelf` |
-| appimage | Arch containers, when opted in | `<app>-<arch>-linux.AppImage` and its `.zsync` |
+| appimage | Arch containers, when opted in | `<app>-anylinux-<arch>.AppImage` and its `.zsync` |
 
 Packaging is in `scripts/package.sh`, `scripts/package-onelf.sh` and
 `scripts/package-appimage.sh`, so it runs the same locally. No `.sha256`
@@ -168,7 +168,10 @@ covers building, checking and debugging the image.
   `gh workflow run release.yml -f tag=v<version>`.
 - **`is published, so it is immutable`.** The run was started for a
   release that is already out. Published releases cannot change; ship
-  the fix as a new release.
+  the fix as a new release. Deleting the release does not free its
+  version either: a tag that belonged to a published immutable release
+  can never be created again. A draft's tag can, which is why a failed
+  build is fixed by deleting the draft and its tag.
 - **`Cannot upload assets to an immutable release`.** The release was
   published before its assets were attached: `git_release_draft = true`
   is missing from `.release-plz.toml`.

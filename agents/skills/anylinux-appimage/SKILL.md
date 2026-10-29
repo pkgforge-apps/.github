@@ -97,7 +97,7 @@ podman run --rm --security-opt label=disable -v "$PWD:/src" -w /src \
     get-debloated-pkgs --add-common --prefer-nano
     rustup default stable
     cargo build --release --locked
-    sh scripts/package-appimage.sh "$(uname -m)-linux" 0.0.0
+    sh scripts/package-appimage.sh "anylinux-$(uname -m)" 0.0.0
     xvfb-run -a timeout 60 dist/*.AppImage --smoke'
 ```
 

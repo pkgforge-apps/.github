@@ -20,22 +20,15 @@ mkdir -p "$appdir/bin" "$appdir/.onelf/icons" "$appdir/.onelf/desktop"
 cp "target/release/$app" "$appdir/bin/$app"
 cp packaging/linux/app.desktop "$appdir/.onelf/desktop/default.desktop"
 
-# onelf wants an SVG for the bundle's own icon, so a pixel-art app gets one
-# that carries the largest raster. A vector app copies its SVG straight in.
+# A vector icon goes in as its SVG. A pixel-art one goes in as a raster,
+# which onelf installs at its own size beside the bundled theme sizes, so
+# a desktop scales the nearest of those as little as it can.
 if [ -f assets/icon.svg ]; then
     cp assets/icon.svg "$appdir/.onelf/icons/default.svg"
     mkdir -p "$appdir/share/icons/hicolor/scalable/apps"
     cp assets/icon.svg "$appdir/share/icons/hicolor/scalable/apps/$app.svg"
 else
-    {
-        printf '<svg xmlns="http://www.w3.org/2000/svg" '
-        printf 'xmlns:xlink="http://www.w3.org/1999/xlink" '
-        printf 'viewBox="0 0 1024 1024" width="1024" height="1024">\n'
-        printf '  <image width="1024" height="1024" '
-        printf 'xlink:href="data:image/png;base64,'
-        base64 -w 0 assets/icons/1024.png
-        printf '"/>\n</svg>\n'
-    } > "$appdir/.onelf/icons/default.svg"
+    cp assets/icons/256.png "$appdir/.onelf/icons/default.png"
 fi
 for size in 16 24 32 48 64 128 256 512; do
     dir=$appdir/share/icons/hicolor/${size}x$size/apps

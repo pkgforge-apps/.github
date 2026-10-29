@@ -25,7 +25,7 @@ Each release ships:
 | Platform | File |
 |----------|------|
 | Linux, portable | `<app>-<arch>-linux.onelf`, one file that runs on any distribution |
-| Linux, AppImage | `<app>-<arch>-linux.AppImage`, from apps that also ship one |
+| Linux, AppImage | `<app>-anylinux-<arch>.AppImage`, from apps that also ship one |
 | Linux | `<app>-<arch>-linux.tar.xz` |
 | macOS | `<app>-<arch>-macos.dmg` |
 | Windows | `<app>-x86_64-windows.exe`, nothing to install |

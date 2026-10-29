@@ -228,10 +228,10 @@ stored in repository secrets.
 
 ## Icons
 
-`assets/icon.svg` is the single source for every icon. Regenerate the
-rasters, the Windows `.ico` and the docs favicons with
-`scripts/icons.sh` after changing it. The `app-icon` skill covers the
-design rules.
+`assets/icon.svg` is the single source for every icon, or
+`assets/icon.png` when the icon is pixel art. Regenerate the rasters, the
+Windows `.ico` and the docs favicons with `scripts/icons.sh` after
+changing it. The `app-icon` skill covers the design rules.
 
 ## Layout
 
@@ -241,7 +241,7 @@ design rules.
 |   |-- main.rs          entry point, window options
 |   `-- app.rs           application state and root UI
 |-- assets/
-|   |-- icon.svg         icon source
+|   |-- icon.svg         icon source, or icon.png for pixel art
 |   |-- icon.ico         Windows icon, generated
 |   `-- icons/           PNG sizes, generated
 |-- packaging/
