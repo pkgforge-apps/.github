@@ -32,9 +32,14 @@ appimage = true
 ```
 
 The `appimage` job of the shared `app-release.yml` then builds
-`<app>-<arch>-linux.AppImage` and its `.zsync` for x86_64 and aarch64,
+`<app>-anylinux-<arch>.AppImage` and its `.zsync` for x86_64 and aarch64,
 smoke-runs the image under Xvfb, and hands both to `publish` with every
 other asset.
+
+The name says what the file is. An Anylinux AppImage does not depend on
+the host's libc and runs on any distribution, so a `-linux` suffix
+described a narrower thing than the file is, and read as a build for one
+distribution rather than for all of them.
 
 Tell users about it in the same change:
 
@@ -45,7 +50,7 @@ Tell users about it in the same change:
   out again deletes them.
 
 The `.zsync` is what keeps installed copies current: the update
-information points at `*<arch>-linux.AppImage.zsync` on the latest
+information points at `*anylinux-<arch>.AppImage.zsync` on the latest
 release, and the self-updater hook reads it. An image published
 without it silently stops updating.
 
@@ -117,7 +122,7 @@ on the one host that matters. The script's check covers `libEGL` and
 `dri/`. To look further:
 
 ```sh
-cd "$(mktemp -d)" && /path/to/<app>-x86_64-linux.AppImage --appimage-extract > /dev/null
+cd "$(mktemp -d)" && /path/to/<app>-anylinux-x86_64.AppImage --appimage-extract > /dev/null
 find squashfs-root -name '*.so*' | sort
 ```
 

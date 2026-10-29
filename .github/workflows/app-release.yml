@@ -235,9 +235,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The name says what the file is: an Anylinux AppImage runs on any
+        # distribution, so it is not named after one.
         include:
-          - { platform: x86_64-linux, os: ubuntu-latest }
-          - { platform: aarch64-linux, os: ubuntu-24.04-arm }
+          - { platform: anylinux-x86_64, os: ubuntu-latest }
+          - { platform: anylinux-aarch64, os: ubuntu-24.04-arm }
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
       PLATFORM: ${{ matrix.platform }}
