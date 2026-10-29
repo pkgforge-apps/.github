@@ -54,6 +54,30 @@ information points at `*anylinux-<arch>.AppImage.zsync` on the latest
 release, and the self-updater hook reads it. An image published
 without it silently stops updating.
 
+### When the app has to build its own
+
+An app whose image needs a package or a `DEPLOY_*` variable the shared
+job does not provide ships its own `.github/workflows/appimage.yml`
+instead, and leaves `appimage = false`. The shared `app-release-plz.yml`
+starts it with the tag whenever that file exists, beside the
+`release.yml` it already starts.
+
+That dispatch is the only thing that can start it. release-plz runs on
+`GITHUB_TOKEN`, and GitHub starts no workflow for an event that token
+produced, so neither the release being published nor the asset build
+finishing can trigger anything: `on: release` and `on: workflow_run`
+both stay silent, which is a release that publishes with no image and no
+error anywhere. `workflow_dispatch` is the exception the rule names, so
+the appimage workflow must be startable that way, with a `tag` input.
+
+Keep the image's upload working whether the release is still a draft or
+already published: the two workflows run side by side and the slower one
+finishes after the release went out.
+
+The app's own `appimage.yml` is not a synced file, so it can carry
+whatever that app needs. It still uploads `*anylinux-<arch>.AppImage`
+and its `.zsync`, since the name and the updater do not change.
+
 ## How it is built
 
 `scripts/package-appimage.sh <platform> <version>` installs the release binary to
