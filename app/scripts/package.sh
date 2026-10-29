@@ -27,9 +27,14 @@ mkdir -p "$stage"
 case $target in
 *-linux-*)
     cp LICENSE README.md "$bin" "$stage/"
-    mkdir -p "$stage/share/applications" "$stage/share/icons/hicolor/scalable/apps"
+    mkdir -p "$stage/share/applications"
     cp packaging/linux/app.desktop "$stage/share/applications/$app.desktop"
-    cp assets/icon.svg "$stage/share/icons/hicolor/scalable/apps/$app.svg"
+    # A vector icon ships as one SVG; pixel art ships as the rasters only,
+    # since an SVG of it would just be the same pixels scaled up.
+    if [ -f assets/icon.svg ]; then
+        mkdir -p "$stage/share/icons/hicolor/scalable/apps"
+        cp assets/icon.svg "$stage/share/icons/hicolor/scalable/apps/$app.svg"
+    fi
     for size in 16 24 32 48 64 128 256 512; do
         dir=$stage/share/icons/hicolor/${size}x$size/apps
         mkdir -p "$dir"

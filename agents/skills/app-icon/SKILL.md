@@ -5,7 +5,9 @@ description: Design a pkgforge-apps app icon as a hand-written SVG and regenerat
 
 # App icon
 
-`assets/icon.svg` is the only source. Everything else is generated.
+`assets/icon.svg` is the only source, or `assets/icon.png` when the icon is
+pixel art. Everything else is generated. The script takes whichever of the
+two exists, so an app switches by adding the PNG and deleting the SVG.
 
 ## Design rules
 
@@ -23,6 +25,11 @@ description: Design a pkgforge-apps app icon as a hand-written SVG and regenerat
   house style. Keep them subtle.
 - Plain SVG only: paths, rects, circles, linear gradients. No filters,
   masks, embedded images or fonts, so every renderer draws it the same.
+- A pixel-art icon is a PNG instead, with the art on a square grid and a
+  transparent margin. Every size is then a whole multiple of the grid, so
+  the pixels stay square; leave the margin fully transparent, since a
+  faint halo left over from scaling the art up shows as a white smudge on
+  a dark desktop.
 - ASCII only, like every file in the repository.
 - When the full icon is too detailed for a browser tab, add a simplified
   `assets/favicon.svg`; the script prefers it for the favicon.

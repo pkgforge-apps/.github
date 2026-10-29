@@ -45,6 +45,11 @@ Pick one per app at the start; do not mix them.
   cache directories.
 - CI tests on all three platforms. A change that only compiles on yours
   is not done.
+- An app that links a system library names its Debian packages, one per
+  line, in `.github/apt-packages.txt`, and CI installs them before it
+  builds. The file takes comments. Keep it to what the build needs: the
+  release bundles carry their own libraries, so this is for compiling,
+  not for running.
 
 ## Workflow
 
