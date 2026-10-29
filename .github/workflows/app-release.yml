@@ -19,6 +19,12 @@ on:
         required: false
         type: string
         default: ""
+    secrets:
+      # Read by the onelf job from the app's `release` environment. A
+      # reusable workflow sees an environment secret only when the caller
+      # passes it, even though it never holds the value itself.
+      ONELF_SIGNING_KEY:
+        required: false
 
 permissions: {}
 
