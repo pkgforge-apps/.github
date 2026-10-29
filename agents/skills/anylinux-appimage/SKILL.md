@@ -76,6 +76,30 @@ binaries into the AppDir by hand.
   has no `libEGL.so.1` or `dri/`. Set another `DEPLOY_*` variable only
   when detection gets that one wrong, and say why in the app's own
   section of `AGENTS.md`.
+- **A stack reached by name.** quick-sharun only detects a deploy mode
+  from what the binary links, so a stack it loads through another
+  library stays out: an audio app reaches PulseAudio and PipeWire
+  through ALSA plugins, and nothing links `libpulse`, so
+  `DEPLOY_PULSE` and `DEPLOY_PIPEWIRE` never turn on by themselves and
+  the image plays no sound. Such an app names the variables it needs in
+  `packaging/appimage/deploy.env`, a shell fragment:
+
+  ```sh
+  # cpal reaches the servers through ALSA plugins, not by linking them.
+  DEPLOY_PIPEWIRE=1
+  DEPLOY_PULSE=1
+  ```
+
+  `scripts/package-appimage.sh` sources it before it runs quick-sharun
+  and before it sets its own variables, so a value the file sets that
+  the script also uses is overwritten rather than obeyed. It sources
+  with `set -a`, so a plain assignment in the file is exported and
+  reaches quick-sharun, a child process; a file of bare `NAME=value`
+  lines is enough. `DEPLOY_OPENGL` stays the script's own. An app
+  without the file builds exactly as before. The packages the
+  deployment then bundles, such as the servers themselves, belong in
+  `.github/pacman-packages.txt`, since quick-sharun copies only what the
+  build host has.
 - **Pins.** The job fetches quick-sharun and `get-debloated-pkgs` from
   one Anylinux-AppImages commit; quick-sharun pins sharun and
   appimagetool itself. To bump, change the commit in the three URLs in

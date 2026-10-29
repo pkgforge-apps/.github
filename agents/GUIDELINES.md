@@ -216,7 +216,9 @@ expect that format, by setting `appimage = true` under
 `[package.metadata.pkgforge]` in `Cargo.toml`. It is a second format,
 not a replacement for the onelf bundle. The release pipeline builds it
 with `scripts/package-appimage.sh`; the `anylinux-appimage` skill
-covers it.
+covers it. An app whose stack quick-sharun cannot detect, such as the
+audio servers reached through ALSA plugins, names the `DEPLOY_*`
+variables it needs in `packaging/appimage/deploy.env`.
 
 Apps are not published to crates.io by default. When one should be,
 publish it through crates.io trusted publishing, never with a token
@@ -251,6 +253,7 @@ changing it. The `app-icon` skill covers the design rules.
 |   `-- icons/           PNG sizes, generated
 |-- packaging/
 |   |-- linux/app.desktop
+|   |-- appimage/deploy.env  optional DEPLOY_* variables
 |   `-- macos/Info.plist
 |-- docs/                VitePress site
 |-- scripts/             shared, except bootstrap.sh in the template
