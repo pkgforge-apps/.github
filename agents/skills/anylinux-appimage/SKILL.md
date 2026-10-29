@@ -78,26 +78,33 @@ binaries into the AppDir by hand.
   section of `AGENTS.md`.
 - **A stack reached by name.** quick-sharun only detects a deploy mode
   from what the binary links, so a stack it loads through another
-  library stays out: an audio app reaches PulseAudio and PipeWire
-  through ALSA plugins, and nothing links `libpulse`, so
-  `DEPLOY_PULSE` and `DEPLOY_PIPEWIRE` never turn on by themselves and
-  the image plays no sound. Such an app names the variables it needs in
-  `packaging/appimage/deploy.env`, a shell fragment:
+  library stays out: an audio app reaches the sound server through an
+  ALSA plugin, and nothing links `libpulse`, so `DEPLOY_PULSE` never
+  turns on by itself and the image plays no sound. Such an app names the
+  variables it needs in `packaging/appimage/deploy.env`, a shell
+  fragment:
 
   ```sh
-  # cpal reaches the servers through ALSA plugins, not by linking them.
-  DEPLOY_PIPEWIRE=1
+  # cpal reaches the server through an ALSA plugin, not by linking it.
   DEPLOY_PULSE=1
   ```
 
-  `scripts/package-appimage.sh` sources it before it runs quick-sharun
-  and before it sets its own variables, so a value the file sets that
-  the script also uses is overwritten rather than obeyed. It sources
-  with `set -a`, so a plain assignment in the file is exported and
-  reaches quick-sharun, a child process; a file of bare `NAME=value`
+  Deploy only what the image's default PCM resolves to. The shared job
+  installs PulseAudio, not PipeWire, and where both are present the
+  pulse config sorts later, so pulse is the default PCM either way. The
+  pulse plugin serves a PulseAudio host and a PipeWire one running
+  pipewire-pulse, which is the usual desktop setup. An app that also
+  installs the PipeWire packages and asks for `DEPLOY_PIPEWIRE` ships
+  its client library and SPA plugins that no config selects.
+
+  `scripts/package-appimage.sh` sources the file before it runs
+  quick-sharun and before it sets its own variables, so a value the file
+  sets that the script also uses is overwritten rather than obeyed. It
+  sources with `set -a`, so a plain assignment in the file is exported
+  and reaches quick-sharun, a child process; a file of bare `NAME=value`
   lines is enough. `DEPLOY_OPENGL` stays the script's own. An app
   without the file builds exactly as before. The packages the
-  deployment then bundles, such as the servers themselves, belong in
+  deployment then bundles, such as the server itself, belong in
   `.github/pacman-packages.txt`, since quick-sharun copies only what the
   build host has.
 - **Pins.** The job fetches quick-sharun and `get-debloated-pkgs` from
