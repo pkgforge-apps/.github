@@ -13,6 +13,21 @@
 set -eu
 cd "$(dirname "$0")/.."
 
+# Detection cannot see a stack the app reaches by name rather than by
+# linking, such as the audio servers behind libasound. An app that needs
+# one names the variables in packaging/appimage/deploy.env. It is sourced
+# before this script sets its own variables, so the script's values win
+# over anything the file happens to set, and with `set -a` in force, so
+# quick-sharun, a child process, receives them. The packages quick-sharun
+# then bundles come from .github/pacman-packages.txt.
+deploy_env=packaging/appimage/deploy.env
+if [ -f "$deploy_env" ]; then
+    set -a
+    # shellcheck disable=SC1090 # the app supplies this file
+    . "$deploy_env"
+    set +a
+fi
+
 platform=$1
 version=$2
 app=$(sed -n 's/^name = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
