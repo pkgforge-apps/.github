@@ -278,9 +278,11 @@ jobs:
       fail-fast: false
       matrix:
         # The name says what the file is: an Anylinux AppImage runs on any
-        # distribution, so it is not named after one.
+        # distribution, so it is not named after one. The runners are
+        # pinned rather than `-latest`: the image carries the container's
+        # glibc and loader, so a runner image bump must be deliberate.
         include:
-          - { platform: anylinux-x86_64, os: ubuntu-latest }
+          - { platform: anylinux-x86_64, os: ubuntu-24.04 }
           - { platform: anylinux-aarch64, os: ubuntu-24.04-arm }
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
