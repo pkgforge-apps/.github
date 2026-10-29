@@ -1,0 +1,134 @@
+name: provision-apps
+
+# Gives every app the key its onelf bundles sign self-updates with. For each
+# repository pkgforge-apps-bot is installed on that carries
+# .agents/shared-guidelines.lock and has no key yet, it generates a keypair,
+# stores the secret as ONELF_SIGNING_KEY in the app's `release` environment
+# and opens a pull request committing the public key as
+# packaging/onelf/update.pub. Once that merges, the app's releases are
+# signed; until then its bundles update unsigned.
+#
+# The bot never changes repository settings: the `release` environment,
+# usable by main alone, is created by bootstrap-app. An app without it is
+# reported and left alone. A key whose public half is on main is never
+# replaced, since every bundle released since embeds it.
+on:
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: provision-apps
+
+permissions: {}
+
+jobs:
+  keys:
+    # Skipped until the App's client ID and key are set on this repository.
+    if: vars.APP_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      BRANCH: chore/update-key
+      ONELF_VERSION: 0.5.0
+      ONELF_SHA256: 72b7d55ae01dc7ec736c3dd072bc3781ea66833bf7a5ac4d9cea4a9abe60b597
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-environments: write
+          permission-actions: read
+      - name: Install onelf
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/onelf" \
+            "https://github.com/QaidVoid/onelf/releases/download/$ONELF_VERSION/onelf-x86_64-linux"
+          echo "$ONELF_SHA256  $RUNNER_TEMP/onelf" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/onelf"
+      - name: Provision every app
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          id=$(gh api "users/${SLUG}[bot]" --jq .id)
+          git config --global user.name "${SLUG}[bot]"
+          git config --global user.email "$id+${SLUG}[bot]@users.noreply.github.com"
+          gh api --paginate /installation/repositories \
+            --jq '.repositories[] | select(.archived | not) | .full_name' > repos
+
+          # provision <repo>: give one app its key, if it needs one.
+          provision() {
+            gh api "repos/$1/contents/.agents/shared-guidelines.lock" > /dev/null 2>&1 ||
+              return 0
+            if [ "$(gh api "repos/$1" --jq .is_template)" = true ]; then
+              echo "$1: a template, which releases nothing"
+              return 0
+            fi
+
+            custom=$(gh api "repos/$1/environments/release" \
+              --jq '.deployment_branch_policy.custom_branch_policies // false' 2>/dev/null) || {
+              echo "$1: no release environment; create it as bootstrap-app does" >&2
+              return 1
+            }
+            allowed=$(gh api "repos/$1/environments/release/deployment-branch-policies" \
+              --jq '[.branch_policies[] | "\(.type):\(.name)"] | join(" ")')
+            if [ "$custom" != true ] || [ "$allowed" != branch:main ]; then
+              echo "$1: the release environment must allow main alone, not '${allowed:-any branch}'" >&2
+              return 1
+            fi
+
+            committed=false
+            gh api "repos/$1/contents/packaging/onelf/update.pub" > /dev/null 2>&1 && committed=true
+            stored=false
+            gh api "repos/$1/environments/release/secrets/ONELF_SIGNING_KEY" > /dev/null 2>&1 && stored=true
+            pending=$(gh pr list -R "$1" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+
+            if [ "$committed" = true ]; then
+              if [ "$stored" = true ]; then
+                echo "$1: has its key"
+                return 0
+              fi
+              echo "$1: packaging/onelf/update.pub is on main but the release environment has no ONELF_SIGNING_KEY; restore it or rotate the key by hand" >&2
+              return 1
+            fi
+            if [ "$stored" = true ] && [ -n "$pending" ]; then
+              echo "$1: key proposed in #$pending"
+              return 0
+            fi
+
+            # No released bundle embeds a key that is not on main, so a new
+            # pair may replace a secret left without its pull request.
+            dir=$(mktemp -d)
+            "$RUNNER_TEMP/onelf" key new --secret "$dir/key" --public "$dir/pub" > /dev/null || return 1
+            base64 -w 0 "$dir/key" | gh secret set ONELF_SIGNING_KEY --env release -R "$1" || return 1
+            rm -f "$dir/key"
+            git clone --quiet --depth 1 \
+              "https://x-access-token:$GH_TOKEN@github.com/$1.git" "$dir/repo" || return 1
+            mkdir -p "$dir/repo/packaging/onelf"
+            cp "$dir/pub" "$dir/repo/packaging/onelf/update.pub"
+            git -C "$dir/repo" switch --quiet -c "$BRANCH" &&
+              git -C "$dir/repo" add packaging/onelf/update.pub &&
+              git -C "$dir/repo" commit --quiet -m "feat: sign onelf self-updates with this app's key" &&
+              git -C "$dir/repo" push --quiet --force origin "$BRANCH" || return 1
+            if [ -z "$pending" ]; then
+              gh pr create -R "$1" --head "$BRANCH" \
+                --title "feat: sign onelf self-updates with this app's key" \
+                --body "Commits the public half of this app's onelf update key. Its secret half is already in the \`release\` environment as \`ONELF_SIGNING_KEY\`. Once merged, every release signs its onelf bundles, and installed bundles accept only signed updates from then on. Until then they update unsigned." ||
+                return 1
+            fi
+            echo "$1: key proposed"
+          }
+
+          failed=
+          while read -r repo; do
+            provision "$repo" || failed="$failed $repo"
+          done < repos
+          if [ -n "$failed" ]; then
+            echo "failed:$failed" >&2
+            exit 1
+          fi

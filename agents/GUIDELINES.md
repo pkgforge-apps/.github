@@ -200,6 +200,11 @@ without LLVM, which adds about 8 MB; do not drop it to save space. A smudge
 app drawing with its CPU renderer needs no GL, so it turns `gl` and
 `dri` off in `onelf.toml`; confirm with the `test-linux-bundle` skill.
 
+The onelf bundle updates itself with `--onelf-update`, downloading only
+what changed since the copy it replaces. Once the app has its update key
+it accepts only releases signed with it; the `release` skill covers how
+the key is made and used.
+
 Run the `test-linux-bundle` skill before merging any change that can
 alter what the bundle loads: `onelf.toml`, a dependency that links or
 opens a system library, an onelf upgrade, or a feature that reaches a

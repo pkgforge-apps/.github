@@ -124,6 +124,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     container:
       image: ${{ matrix.image }}
+    # The signing secret lives in the app's `release` environment, which
+    # only main may use; provision-apps in pkgforge-apps/.github creates it.
+    environment: release
     permissions:
       contents: read
     strategy:
@@ -133,17 +136,17 @@ jobs:
           - platform: x86_64-linux
             os: ubuntu-latest
             image: archlinux:latest@sha256:e43f1fd80e073992c5f173efbbbf65144170bf60aeb7369940087d63eacea8f4
-            onelf-sha256: 65121bb1abebed95191615218a4a5c6fdb97a410d8625d6ebc2fce3c09881dd6
+            onelf-sha256: 72b7d55ae01dc7ec736c3dd072bc3781ea66833bf7a5ac4d9cea4a9abe60b597
             mesa-sha256: 0a9c2b015c7c848f5d64d5fd871b4ee39acded90e210ec24626f95fffe53c50e
           - platform: aarch64-linux
             os: ubuntu-24.04-arm
             image: menci/archlinuxarm:latest@sha256:a3330643ab216afdeb1a15b78925e90f370484a49b5a220f8d617f4b443701b8
-            onelf-sha256: ae0d80d206b2fbbefda122c0a17a543a18c40557a58847090a03722113a2410f
+            onelf-sha256: 413e278a47c718e50a58db17f57c8974055628dffd1a586c72e3789129ef297e
             mesa-sha256: 4c86a13e2e5b5ae43a9de584dbee48d4aec32c145ecc5ec6d76fe1ba52040063
     env:
       # The onelf release whose binaries the matrix pins by SHA-256. Bump
       # the two together.
-      PINNED_ONELF_VERSION: 0.4.2
+      PINNED_ONELF_VERSION: 0.5.0
       PINNED_ONELF_SHA256: ${{ matrix.onelf-sha256 }}
       ONELF_VERSION: ${{ inputs.onelf-version }}
       # The onelf-pkgs/mesa release whose GL trees the matrix pins by
@@ -226,12 +229,31 @@ jobs:
           chmod +x /usr/local/bin/onelf
           onelf --version
       - run: sh scripts/package-onelf.sh "$PLATFORM" "$VERSION"
+      # The bundle updates itself from this release's asset. An app with its
+      # update key signs it here, and the signature is published beside the
+      # bundle, where the runtime looks for it. Without the key the bundle
+      # updates unsigned and there is nothing to sign.
+      - name: Sign the bundle for self-update
+        env:
+          ONELF_SIGNING_KEY: ${{ secrets.ONELF_SIGNING_KEY }}
+        run: |
+          [ -f packaging/onelf/update.pub ] || exit 0
+          if [ -z "$ONELF_SIGNING_KEY" ]; then
+            echo "packaging/onelf/update.pub is set, but the release environment has no ONELF_SIGNING_KEY" >&2
+            exit 1
+          fi
+          key=$(mktemp)
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$ONELF_SIGNING_KEY" | base64 -d > "$key"
+          onelf sign dist/*.onelf --key "$key"
       - name: Smoke run the bundle
         run: xvfb-run -a timeout 60 dist/*.onelf --smoke
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist-onelf-${{ matrix.platform }}
-          path: dist/*.onelf
+          path: |
+            dist/*.onelf
+            dist/*.onelf.sig
           if-no-files-found: error
 
   # The Anylinux AppImage, for an app whose Cargo.toml sets `appimage =

@@ -17,8 +17,9 @@ Organization-wide files for [pkgforge-apps](https://github.com/pkgforge-apps).
     |-- app-release.yml        archives, onelf bundles and opt-in
     |                          AppImages for a tag
     |-- app-docs.yml           docs site to GitHub Pages
-    `-- sync-apps.yml          runs here: the sync pull request in
-                               every app
+    |-- sync-apps.yml          runs here: the sync pull request in
+    |                          every app
+    `-- provision-apps.yml     runs here: each app's onelf update key
 ```
 
 Every app copies `agents/` and `app/` with its
