@@ -178,7 +178,7 @@ the pipeline. In short:
 | Platform | Asset |
 |----------|-------|
 | Linux, portable | `<app>-<arch>-linux.onelf` |
-| Linux, AppImage, opt-in | `<app>-<arch>-linux.AppImage` and its `.zsync` |
+| Linux, AppImage, opt-in | `<app>-anylinux-<arch>.AppImage` and its `.zsync` |
 | Linux | `<app>-<arch>-linux.tar.xz` |
 | macOS | `<app>-<arch>-macos.dmg` with an `.app` bundle |
 | Windows | `<app>-x86_64-windows.exe` |
