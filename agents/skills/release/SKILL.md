@@ -34,7 +34,7 @@ reaches every app through its sync pull request; see the
    workflows, so `release-pr` dispatches `ci.yml` on the PR branch
    itself. Its checks show on the PR as usual.
 3. Merging the release PR pushes to `main`. `release` now tags the
-   version (`<version>`, no `v` prefix) and creates the GitHub release
+   version (`v<version>`) and creates the GitHub release
    with the changelog section, as a draft (`git_release_draft` in
    `.release-plz.toml`).
 4. A release created with `GITHUB_TOKEN` cannot trigger `on: release`
@@ -134,7 +134,7 @@ To try another onelf on a release that is still a draft without
 changing the pin, build its assets with the `onelf-version` input:
 
 ```sh
-gh workflow run release.yml -f tag=<version> -f onelf-version=<onelf version>
+gh workflow run release.yml -f tag=v<version> -f onelf-version=<onelf version>
 ```
 
 That version is checked against the SHA-256 digest GitHub lists for its
@@ -165,7 +165,7 @@ covers building, checking and debugging the image.
   draft and its tag and cut a new release.
 - **A draft release has no assets.** The dispatch did not happen or
   failed. Build them by hand:
-  `gh workflow run release.yml -f tag=<version>`.
+  `gh workflow run release.yml -f tag=v<version>`.
 - **`is published, so it is immutable`.** The run was started for a
   release that is already out. Published releases cannot change; ship
   the fix as a new release.
