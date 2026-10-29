@@ -93,6 +93,18 @@ jobs:
           ref: ${{ env.TAG }}
           persist-credentials: false
       - run: rustup toolchain install stable --profile minimal --target "$TARGET" && rustup default stable
+      # An app that links a system library lists its Debian packages in
+      # .github/apt-packages.txt, the same file CI reads.
+      - name: Install the system libraries this app links against
+        if: runner.os == 'Linux'
+        run: |
+          file=.github/apt-packages.txt
+          [ -f "$file" ] || exit 0
+          packages=$(sed -e 's/#.*//' "$file" | xargs)
+          [ -n "$packages" ] || exit 0
+          sudo apt-get update
+          # shellcheck disable=SC2086 # the list is meant to split
+          sudo apt-get install -y --no-install-recommends $packages
       - run: cargo build --release --locked --target "$TARGET"
       - run: sh scripts/package.sh "$TARGET" "$PLATFORM" "$VERSION"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
