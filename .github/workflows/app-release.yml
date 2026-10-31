@@ -331,9 +331,9 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       # The Anylinux-AppImages commit the packaging tools come from.
       # quick-sharun pins the tools it downloads in turn.
-      QUICK_SHARUN: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/c28bb80743106fdf08cb10fb27d19d9932eb0865/useful-tools/quick-sharun.sh
-      DEBLOATED_PACKAGES: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/c28bb80743106fdf08cb10fb27d19d9932eb0865/useful-tools/get-debloated-pkgs.sh
-      MAKE_AUR_PACKAGE: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/c28bb80743106fdf08cb10fb27d19d9932eb0865/useful-tools/make-aur-package.sh
+      QUICK_SHARUN: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/8fc837e3d5b260bf317ed6dd982c92d99842862e/useful-tools/quick-sharun.sh
+      DEBLOATED_PACKAGES: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/8fc837e3d5b260bf317ed6dd982c92d99842862e/useful-tools/get-debloated-pkgs.sh
+      MAKE_AUR_PACKAGE: https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/8fc837e3d5b260bf317ed6dd982c92d99842862e/useful-tools/make-aur-package.sh
     steps:
       - uses: pkgforge-dev/anylinux-setup-action@ba7321e11074f9e387a0634e653d09b115d576cd # v6
       # The setup action leaves the toolchain out, and a pacman transaction
