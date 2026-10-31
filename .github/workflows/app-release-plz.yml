@@ -4,10 +4,9 @@ name: app-release-plz
 # main. `release` tags a version once its release PR is merged, creates
 # the GitHub release as a draft (the app's .release-plz.toml sets
 # git_release_draft) and starts the app's release.yml, which attaches the
-# assets and publishes it. An app that carries an appimage.yml gets that
-# started too, for the Anylinux AppImage the shared release job does not
-# build. `release-pr` then opens or refreshes the release PR for what
-# landed since.
+# assets, the Anylinux AppImage among them, and publishes it.
+# `release-pr` then opens or refreshes the release PR for what landed
+# since.
 #
 # Everything runs on GITHUB_TOKEN, so the release PR, its commits and the
 # release belong to github-actions[bot]. Events made with that token
@@ -55,16 +54,6 @@ jobs:
           tag="$(echo "$RELEASES" | jq -r --arg app "$app" '.[] | select(.package_name == $app) | .tag')"
           if [ -n "$tag" ]; then
             gh workflow run release.yml --repo "$GITHUB_REPOSITORY" -f tag="$tag"
-            # An app that ships an Anylinux AppImage carries its own
-            # appimage.yml, because the image needs packages and DEPLOY_*
-            # variables the shared release job does not pass. It has to be
-            # started here: the events release-plz makes come from
-            # GITHUB_TOKEN, and those start no workflow, so the release
-            # being published or the asset build finishing cannot trigger
-            # it. workflow_dispatch is the one exception, and this is it.
-            if [ -f .github/workflows/appimage.yml ]; then
-              gh workflow run appimage.yml --repo "$GITHUB_REPOSITORY" -f tag="$tag"
-            fi
           fi
 
   # Waits for `release`: the changelog range starts at the last release
