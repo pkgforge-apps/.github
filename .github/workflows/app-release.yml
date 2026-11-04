@@ -144,11 +144,13 @@ jobs:
             image: archlinux:latest@sha256:e43f1fd80e073992c5f173efbbbf65144170bf60aeb7369940087d63eacea8f4
             onelf-sha256: 72b7d55ae01dc7ec736c3dd072bc3781ea66833bf7a5ac4d9cea4a9abe60b597
             mesa-sha256: 0a9c2b015c7c848f5d64d5fd871b4ee39acded90e210ec24626f95fffe53c50e
+            opus-sha256: 847c87b9f5095284a759843a7031244e5ecf4fb73f505043806a569ac6c4faaf
           - platform: aarch64-linux
             os: ubuntu-24.04-arm
             image: menci/archlinuxarm:latest@sha256:a3330643ab216afdeb1a15b78925e90f370484a49b5a220f8d617f4b443701b8
             onelf-sha256: 413e278a47c718e50a58db17f57c8974055628dffd1a586c72e3789129ef297e
             mesa-sha256: 4c86a13e2e5b5ae43a9de584dbee48d4aec32c145ecc5ec6d76fe1ba52040063
+            opus-sha256: c9dad3d028c005adb45782044e869c368ffdbb98cc9f3db8de87d61cd73fe2b7
     env:
       # The onelf release whose binaries the matrix pins by SHA-256. Bump
       # the two together.
@@ -159,6 +161,10 @@ jobs:
       # SHA-256. Bump the three together.
       MESA_RELEASE: v26.2.5-1
       MESA_SHA256: ${{ matrix.mesa-sha256 }}
+      # The onelf-pkgs/opus release whose library trees the matrix pins by
+      # SHA-256. Bump the three together.
+      OPUS_RELEASE: v1.6.1-1
+      OPUS_SHA256: ${{ matrix.opus-sha256 }}
       VERSION: ${{ needs.prepare.outputs.version }}
       PLATFORM: ${{ matrix.platform }}
     steps:
@@ -241,6 +247,20 @@ jobs:
           retry pacman -Rdd --disable-sandbox --noconfirm mesa
           cp -an /tmp/gl/lib/. /usr/lib/
           cp -an /tmp/gl/share/. /usr/share/
+          ldconfig
+      # Arch's libopus carries the models of Opus's neural network
+      # features, over 4 MB that PulseAudio's libsndfile pulls into a
+      # bundle without ever using. onelf-pkgs' build exports the same
+      # interface under the same soname without them, and replaces it.
+      - name: Install onelf-pkgs Opus
+        run: |
+          tree="opus-${PLATFORM%-linux}.tar.zst"
+          curl -fsSL -o "/tmp/$tree" \
+            "https://github.com/onelf-pkgs/opus/releases/download/$OPUS_RELEASE/$tree"
+          echo "$OPUS_SHA256  /tmp/$tree" | sha256sum -c -
+          mkdir /tmp/opus
+          tar --zstd -xf "/tmp/$tree" -C /tmp/opus
+          cp -a /tmp/opus/lib/. /usr/lib/
           ldconfig
       - run: rustup default stable
       - run: cargo build --release --locked
