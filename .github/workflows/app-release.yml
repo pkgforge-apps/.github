@@ -142,15 +142,15 @@ jobs:
           - platform: x86_64-linux
             os: ubuntu-latest
             image: archlinux:latest@sha256:e43f1fd80e073992c5f173efbbbf65144170bf60aeb7369940087d63eacea8f4
-            onelf-sha256: 72b7d55ae01dc7ec736c3dd072bc3781ea66833bf7a5ac4d9cea4a9abe60b597
+            onelf-sha256: 4cb4a499d97113d32b8c56dffbdd3ee63a28c24d36280e4fbe632d5a42563724
           - platform: aarch64-linux
             os: ubuntu-24.04-arm
             image: menci/archlinuxarm:latest@sha256:a3330643ab216afdeb1a15b78925e90f370484a49b5a220f8d617f4b443701b8
-            onelf-sha256: 413e278a47c718e50a58db17f57c8974055628dffd1a586c72e3789129ef297e
+            onelf-sha256: 0aedc39b2f19e77e9443a426c57dd8d3af80f2088ce408bb987451d62901eb89
     env:
       # The onelf release whose binaries the matrix pins by SHA-256. Bump
       # the two together.
-      PINNED_ONELF_VERSION: 0.5.0
+      PINNED_ONELF_VERSION: 0.6.0
       PINNED_ONELF_SHA256: ${{ matrix.onelf-sha256 }}
       ONELF_VERSION: ${{ inputs.onelf-version }}
       VERSION: ${{ needs.prepare.outputs.version }}
