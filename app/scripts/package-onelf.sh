@@ -5,8 +5,9 @@
 #   scripts/package-onelf.sh x86_64-linux 0.1.0
 #
 # Produces dist/<app>-<platform>.onelf. Run `cargo build --release
-# --locked` first. The bundle carries glibc, Mesa and every library the
-# binary loads, all from the build host.
+# --locked` first. The bundle carries glibc and every library the binary
+# loads, all from the build host, and Mesa when onelf.toml turns on `gl`
+# and `dri`.
 #
 # The bundle updates itself from the same asset of the app's latest GitHub
 # release, downloading only what changed. With the app's update key,
