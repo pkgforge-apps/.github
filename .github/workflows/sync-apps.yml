@@ -13,7 +13,9 @@ name: sync-apps
 on:
   push:
     branches: [main]
-    paths: [agents/**, app/**]
+    # The reusable workflows count too: an app calls them at the revision
+    # it last synced, so a change to one reaches it only through a sync.
+    paths: [agents/**, app/**, .github/workflows/app-*.yml]
   workflow_dispatch:
 
 concurrency:
@@ -67,10 +69,13 @@ jobs:
               git -C "$dir" add -A &&
               git -C "$dir" commit --quiet -m "chore: sync shared guidelines" &&
               git -C "$dir" push --quiet --force origin "$BRANCH" || return 1
-            if [ -z "$(gh pr list -R "$1" --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            body="Brings the shared guidelines, skills, scripts and workflows up to date with pkgforge-apps/.github@$GITHUB_SHA."
+            number=$(gh pr list -R "$1" --head "$BRANCH" --state open --json number --jq '.[].number')
+            if [ -z "$number" ]; then
               gh pr create -R "$1" --head "$BRANCH" --title "chore: sync shared guidelines" \
-                --body "Brings the shared guidelines, skills, scripts and workflows up to date with pkgforge-apps/.github@$GITHUB_SHA." ||
-                return 1
+                --body "$body" || return 1
+            else
+              gh pr edit "$number" -R "$1" --body "$body" || return 1
             fi
             echo "$1: proposed"
           }

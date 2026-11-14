@@ -54,7 +54,8 @@ already has. It lists each one. Move the change upstream or into the
 app's own files, or sync with `PKGFORGE_SYNC_OVERWRITE=1` to drop it.
 
 The `sync-apps` workflow of pkgforge-apps/.github runs it in every app
-whenever `agents/` or `app/` changes there, and opens or updates a
+whenever `agents/`, `app/` or a reusable `.github/workflows/app-*.yml`
+changes there, and opens or updates a
 `chore/sync-guidelines` pull request with the result as
 pkgforge-apps-bot, so apps rarely need it by hand. The bot's pull
 requests start the app's CI like anyone's. An app whose sync stops shows
