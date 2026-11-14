@@ -121,9 +121,9 @@ jobs:
 
   # The portable Linux bundle. It is built on Arch, as a glibc and loader
   # bundled from Ubuntu did not run on other systems. onelf carries every
-  # library the binary loads, Mesa included unless the app's onelf.toml
-  # turns it off: the Mesa built without LLVM by onelf-pkgs/mesa, put in
-  # place of Arch's before the bundle is built.
+  # library the binary loads, and Mesa only when the app's onelf.toml asks
+  # for it. Where onelf-pkgs builds a smaller copy of a package the bundle
+  # would carry, that copy takes the place of Arch's first.
   onelf:
     name: onelf ${{ matrix.platform }}
     needs: prepare
@@ -143,22 +143,16 @@ jobs:
             os: ubuntu-latest
             image: archlinux:latest@sha256:e43f1fd80e073992c5f173efbbbf65144170bf60aeb7369940087d63eacea8f4
             onelf-sha256: 72b7d55ae01dc7ec736c3dd072bc3781ea66833bf7a5ac4d9cea4a9abe60b597
-            mesa-sha256: 0a9c2b015c7c848f5d64d5fd871b4ee39acded90e210ec24626f95fffe53c50e
           - platform: aarch64-linux
             os: ubuntu-24.04-arm
             image: menci/archlinuxarm:latest@sha256:a3330643ab216afdeb1a15b78925e90f370484a49b5a220f8d617f4b443701b8
             onelf-sha256: 413e278a47c718e50a58db17f57c8974055628dffd1a586c72e3789129ef297e
-            mesa-sha256: 4c86a13e2e5b5ae43a9de584dbee48d4aec32c145ecc5ec6d76fe1ba52040063
     env:
       # The onelf release whose binaries the matrix pins by SHA-256. Bump
       # the two together.
       PINNED_ONELF_VERSION: 0.5.0
       PINNED_ONELF_SHA256: ${{ matrix.onelf-sha256 }}
       ONELF_VERSION: ${{ inputs.onelf-version }}
-      # The onelf-pkgs/mesa release whose GL trees the matrix pins by
-      # SHA-256. Bump the three together.
-      MESA_RELEASE: v26.2.5-1
-      MESA_SHA256: ${{ matrix.mesa-sha256 }}
       VERSION: ${{ needs.prepare.outputs.version }}
       PLATFORM: ${{ matrix.platform }}
     steps:
@@ -186,8 +180,8 @@ jobs:
             base-devel git rustup patchelf wayland libxkbcommon libxkbcommon-x11 \
             libx11 libxcursor libxi libxrandr mesa jq xorg-server-xvfb xorg-xauth
       # Checked out first, so the next step finds the app's package list;
-      # its packages go in before the Mesa swap, so none can pull Arch's
-      # Mesa back over it.
+      # its packages go in before the onelf-pkgs swaps, so none can pull an
+      # Arch copy back over them.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TAG }}
@@ -215,17 +209,23 @@ jobs:
           }
           # shellcheck disable=SC2086 # the list is meant to split
           retry pacman -S --disable-sandbox --noconfirm --needed $packages
-      # Arch's package stays only for the libraries Mesa needs. Its own
-      # files give way to onelf-pkgs' Mesa, and the tree adds whatever its
-      # drivers need that Arch lacks without replacing what Arch has.
-      - name: Install onelf-pkgs Mesa
+      - run: rustup default stable
+      - run: cargo build --release --locked
+      # Each row is an Arch package that onelf-pkgs builds smaller, with
+      # the same interface under the same sonames. A row applies only when
+      # its condition holds, so an app that does not need the package
+      # downloads nothing:
+      #   installed  this job installed the package, so the bundle may carry it
+      #   gl         the app's onelf.toml bundles Mesa (gl or dri = true)
+      # Opus: Arch's carries the models of its neural network features,
+      # over 4 MB that PulseAudio's libsndfile pulls into a bundle without
+      # using. Mesa: onelf-pkgs builds it without LLVM.
+      # The package's own files give way, and the tree adds what Arch lacks
+      # without replacing files other packages own. It runs after the build,
+      # which may compile against a swapped package's headers, and no step
+      # after it installs a package that could bring Arch's copy back.
+      - name: Install onelf-pkgs builds in place of Arch's
         run: |
-          tree="gl-${PLATFORM%-linux}.tar.zst"
-          curl -fsSL -o "/tmp/$tree" \
-            "https://github.com/onelf-pkgs/mesa/releases/download/$MESA_RELEASE/$tree"
-          echo "$MESA_SHA256  /tmp/$tree" | sha256sum -c -
-          mkdir /tmp/gl
-          tar --zstd -xf "/tmp/$tree" -C /tmp/gl
           retry() {
             attempt=0
             while ! "$@"; do
@@ -238,12 +238,52 @@ jobs:
               sleep 10
             done
           }
-          retry pacman -Rdd --disable-sandbox --noconfirm mesa
-          cp -an /tmp/gl/lib/. /usr/lib/
-          cp -an /tmp/gl/share/. /usr/share/
+          arch=${PLATFORM%-linux}
+          while read -r pkg release asset when sha_x86_64 sha_aarch64; do
+            case $pkg in
+              '' | '#'*) continue ;;
+            esac
+            case $when in
+              installed)
+                if ! pacman -Q "$pkg" > /dev/null 2>&1; then
+                  echo "$pkg: not installed, Arch's stays out"
+                  continue
+                fi
+                ;;
+              gl)
+                if ! grep -Eq '^[[:space:]]*(gl|dri)[[:space:]]*=[[:space:]]*true' onelf.toml; then
+                  echo "$pkg: onelf.toml bundles no Mesa"
+                  continue
+                fi
+                ;;
+              *)
+                echo "$pkg: unknown condition $when" >&2
+                exit 1
+                ;;
+            esac
+            case $arch in
+              x86_64) sha=$sha_x86_64 ;;
+              aarch64) sha=$sha_aarch64 ;;
+            esac
+            tree="$asset-$arch.tar.zst"
+            curl -fsSL -o "/tmp/$tree" \
+              "https://github.com/onelf-pkgs/$pkg/releases/download/$release/$tree"
+            echo "$sha  /tmp/$tree" | sha256sum -c -
+            mkdir "/tmp/swap-$pkg"
+            tar --zstd -xf "/tmp/$tree" -C "/tmp/swap-$pkg"
+            retry pacman -Rdd --disable-sandbox --noconfirm "$pkg"
+            for dir in lib share; do
+              if [ -d "/tmp/swap-$pkg/$dir" ]; then
+                cp -an "/tmp/swap-$pkg/$dir/." "/usr/$dir/"
+              fi
+            done
+            echo "$pkg: onelf-pkgs $release in place of Arch's"
+          done <<'EOF'
+          # package release   asset when      sha256 x86_64                                                    sha256 aarch64
+          opus      v1.6.1-1  opus  installed 847c87b9f5095284a759843a7031244e5ecf4fb73f505043806a569ac6c4faaf c9dad3d028c005adb45782044e869c368ffdbb98cc9f3db8de87d61cd73fe2b7
+          mesa      v26.2.5-1 gl    gl        0a9c2b015c7c848f5d64d5fd871b4ee39acded90e210ec24626f95fffe53c50e 4c86a13e2e5b5ae43a9de584dbee48d4aec32c145ecc5ec6d76fe1ba52040063
+          EOF
           ldconfig
-      - run: rustup default stable
-      - run: cargo build --release --locked
       # Another version than the pinned one is checked against the digest
       # GitHub lists for its asset, which catches a corrupted download but
       # trusts the release as published.
