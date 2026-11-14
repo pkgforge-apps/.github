@@ -31,8 +31,8 @@ jobs:
       contents: read
     env:
       BRANCH: chore/update-key
-      ONELF_VERSION: 0.5.0
-      ONELF_SHA256: 72b7d55ae01dc7ec736c3dd072bc3781ea66833bf7a5ac4d9cea4a9abe60b597
+      ONELF_VERSION: 0.6.0
+      ONELF_SHA256: 4cb4a499d97113d32b8c56dffbdd3ee63a28c24d36280e4fbe632d5a42563724
     steps:
       - id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
