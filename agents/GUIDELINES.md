@@ -8,9 +8,15 @@ release workflows live in
 [pkgforge-apps/.github](https://github.com/pkgforge-apps/.github). Each
 app carries a copy that `scripts/sync-guidelines.sh` refreshes. When
 they change there, pkgforge-apps-bot opens a pull request in every app
-with the update. Edit them there,
-never in an app; an edit made in an app is overwritten by the next sync.
+with the update. Edit them there, never in an app: a sync stops rather
+than overwrite a shared file an app has changed.
 `.agents/shared-guidelines.lock` lists every shared file.
+
+An app that differs from these rules says so under the `## This app`
+heading of its `AGENTS.md`, below the shared block, and that section
+wins where the two disagree. Packaging choices go in the app's own
+files, which no sync touches: `onelf.toml` for the onelf bundle and
+`packaging/appimage/deploy.env` for the AppImage.
 
 ## Purpose
 
@@ -218,7 +224,10 @@ not a replacement for the onelf bundle. The release pipeline builds it
 with `scripts/package-appimage.sh`; the `anylinux-appimage` skill
 covers it. An app whose stack quick-sharun cannot detect, such as the
 audio servers reached through ALSA plugins, names the `DEPLOY_*`
-variables it needs in `packaging/appimage/deploy.env`.
+variables it needs in `packaging/appimage/deploy.env`. The GL stack is
+chosen there too: an app that draws with GL sets `DEPLOY_OPENGL=1` to
+carry Mesa, and one that draws without GL on a host that has none sets
+`USE_HOST_DRIVERS=1` to leave the drivers on the host.
 
 Apps are not published to crates.io by default. When one should be,
 publish it through crates.io trusted publishing, never with a token
@@ -253,7 +262,7 @@ changing it. The `app-icon` skill covers the design rules.
 |   `-- icons/           PNG sizes, generated
 |-- packaging/
 |   |-- linux/app.desktop
-|   |-- appimage/deploy.env  optional DEPLOY_* variables
+|   |-- appimage/deploy.env  the GL choice and DEPLOY_* variables
 |   `-- macos/Info.plist
 |-- docs/                VitePress site
 |-- scripts/             shared, except bootstrap.sh in the template
