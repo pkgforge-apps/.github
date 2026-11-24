@@ -81,6 +81,35 @@ jobs:
           command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # An app with a PKGBUILD in its root gets its pkgver and pkgrel
+      # updated on the release PR branch. The commit is skipped by the
+      # changelog (`chore(release)`) and release-plz overwrites it, as it
+      # does any bot commit, the next time it refreshes the PR.
+      - name: Update the PKGBUILD version
+        if: ${{ steps.release-plz.outputs.prs_created == 'true' && hashFiles('PKGBUILD') != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.release-plz.outputs.pr }}
+        run: |
+          app="$(sed -n 's/^name = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          branch="$(echo "$PR" | jq -r '.head_branch')"
+          version="$(echo "$PR" | jq -r --arg app "$app" '.releases[]? | select(.package_name == $app) | .version')"
+          if [ -z "$version" ]; then
+            echo "::warning::The release PR has no release of $app; PKGBUILD left as is."
+            exit 0
+          fi
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -c "http.extraheader=Authorization: basic $auth" fetch "$url" "$branch"
+          git checkout -B "$branch" FETCH_HEAD
+          sed -i -e "s/^pkgver=.*/pkgver=$version/" -e 's/^pkgrel=.*/pkgrel=1/' PKGBUILD
+          if git diff --quiet PKGBUILD; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "chore(release): update PKGBUILD to $version" PKGBUILD
+          git -c "http.extraheader=Authorization: basic $auth" push "$url" "HEAD:refs/heads/$branch"
       - name: Run CI on the release PR
         if: steps.release-plz.outputs.prs_created == 'true'
         env:
